@@ -1,0 +1,17 @@
+import { db } from './db';
+import { runs } from './db/schema';
+import { desc } from 'drizzle-orm';
+
+let currentRunId: number | null = null;
+
+export async function getCurrentRunId() {
+	if (currentRunId) return currentRunId;
+	const [latest] = await db.select().from(runs).orderBy(desc(runs.id)).limit(1);
+	if (latest) {
+		currentRunId = latest.id;
+		return currentRunId;
+	}
+	const inserted = await db.insert(runs).values({}).returning({ id: runs.id });
+	currentRunId = inserted[0].id;
+	return currentRunId;
+}

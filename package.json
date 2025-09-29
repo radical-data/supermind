@@ -27,6 +27,7 @@
 		"@tailwindcss/vite": "^4.0.0",
 		"@types/better-sqlite3": "^7.6.12",
 		"@types/node": "^20",
+		"@types/three": "^0.180.0",
 		"drizzle-kit": "^0.30.2",
 		"drizzle-orm": "^0.40.0",
 		"eslint": "^9.22.0",
@@ -44,6 +45,9 @@
 		"vite": "^7.0.4"
 	},
 	"dependencies": {
-		"better-sqlite3": "^11.8.0"
+		"3d-force-graph": "^1.79.0",
+		"better-sqlite3": "^11.8.0",
+		"force-graph": "^1.51.0",
+		"three": "^0.180.0"
 	}
 }

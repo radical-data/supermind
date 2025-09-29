@@ -1,2 +1,6 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
+
+.btn {
+    @apply inline-block rounded-lg bg-black px-4 py-2 text-white hover:bg-gray-800;
+}
