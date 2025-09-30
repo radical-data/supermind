@@ -19,6 +19,7 @@
 <div class="relative min-h-screen bg-black text-white">
 	<BrainGraph
 		interactive
+		labelMode="always"
 		height={920}
 		on:count={(e) => (submissionCount = e.detail.count)}
 		on:summary={onSummary}

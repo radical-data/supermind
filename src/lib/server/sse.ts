@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { submissions } from '$lib/server/db/schema';
+import { submissions, participants } from '$lib/server/db/schema';
 import { getCurrentRunId } from '.';
 import { eq } from 'drizzle-orm';
 
@@ -29,4 +29,9 @@ export async function broadcastCounts() {
 		db.select().from(submissions).where(eq(submissions.runId, runId))
 	]);
 	send('submission_count', { count: subs.length });
+}
+
+export async function broadcastParticipants() {
+	const people = await db.select().from(participants);
+	send('participant_count', { count: people.length });
 }

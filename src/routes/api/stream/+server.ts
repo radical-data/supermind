@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { addSubscriber, removeSubscriber, send } from '$lib/server/sse';
+import { addSubscriber, broadcastParticipants, removeSubscriber, send } from '$lib/server/sse';
 import { broadcastCounts } from '$lib/server/sse';
 import { buildAndBroadcastGraph } from '$lib/server/graph';
 import { db } from '$lib/server/db';
@@ -24,6 +24,7 @@ export const GET: RequestHandler = async () => {
 			queueMicrotask(async () => {
 				// Always push current counters & graph to all subscribers
 				await broadcastCounts();
+				await broadcastParticipants();
 				await buildAndBroadcastGraph();
 
 				// If we have a saved summary, broadcast it (so everyone stays in sync)
@@ -35,6 +36,10 @@ export const GET: RequestHandler = async () => {
 					} catch {
 						/* ignore malformed saved JSON */
 					}
+				}
+				if (r?.pairsJson) {
+					const { send } = await import('$lib/server/sse');
+					send('matches', JSON.parse(r.pairsJson));
 				}
 
 				// Send this *new client* a lightweight snapshot of recent lines for bubbles

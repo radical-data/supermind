@@ -15,3 +15,10 @@ export async function getCurrentRunId() {
 	currentRunId = inserted[0].id;
 	return currentRunId;
 }
+
+export async function resetRun() {
+	// Start a brand-new run row and swap currentRunId
+	const inserted = await db.insert(runs).values({}).returning({ id: runs.id });
+	currentRunId = inserted[0].id;
+	return currentRunId;
+}

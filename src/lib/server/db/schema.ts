@@ -1,6 +1,6 @@
 // src/lib/server/db/schema.ts
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text } from 'drizzle-orm/sqlite-core';
 
 // Helpers
 const nowText = sql`CURRENT_TIMESTAMP`;
@@ -11,8 +11,6 @@ const nowText = sql`CURRENT_TIMESTAMP`;
 export const participants = sqliteTable('participants', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	name: text('name').notNull(),
-	// store table side; typed in TS as 'A' | 'B'
-	tableSide: text('table_side').$type<'A' | 'B'>().notNull(),
 	createdAt: text('created_at').default(nowText).notNull()
 });
 

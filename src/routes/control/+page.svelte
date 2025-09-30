@@ -15,6 +15,7 @@
 	let contradictions: any[] = [];
 	let agenda: any[] = [];
 	$: void 0;
+	let participantsCount = 0;
 
 	async function summarise() {
 		summarising = true;
@@ -35,6 +36,50 @@
 		}
 	}
 
+	let resetting = false;
+	let resetMsg = '';
+
+	async function newRun() {
+		if (
+			!confirm('Start a NEW run? Existing submissions stay in the old run, and counters reset.')
+		) {
+			return;
+		}
+		resetting = true;
+		resetMsg = '';
+		try {
+			const r = await fetch('/api/run/reset', { method: 'POST' });
+			if (!r.ok) throw new Error(await r.text());
+			const { runId } = await r.json();
+			resetMsg = `New run started (#${runId}).`;
+			setTimeout(() => (resetMsg = ''), 3000);
+		} catch (e: any) {
+			resetMsg = `Failed to start new run: ${e?.message ?? e}`;
+		} finally {
+			resetting = false;
+		}
+	}
+
+	let matching = false,
+		matchMsg = '',
+		matchErr = '';
+
+	async function matchNow() {
+		matching = true;
+		matchMsg = '';
+		matchErr = '';
+		try {
+			const r = await fetch('/api/match', { method: 'POST' });
+			if (!r.ok) throw new Error(await r.text());
+			matchMsg = 'Matches sent ✓';
+			setTimeout(() => (matchMsg = ''), 2000);
+		} catch (e: any) {
+			matchErr = `Failed to match: ${e?.message ?? e}`;
+		} finally {
+			matching = false;
+		}
+	}
+
 	onMount(() => {
 		es = new EventSource('/api/stream');
 		es.addEventListener('submission_count', (e: MessageEvent) => {
@@ -48,18 +93,16 @@
 			agenda = s.agenda ?? [];
 			lastSummaryAt = new Date();
 		});
+		es.addEventListener('participant_count', (e: MessageEvent) => {
+			const d = JSON.parse(e.data);
+			participantsCount = d.count ?? 0;
+		});
 	});
 	onDestroy(() => es?.close());
 </script>
 
 <div class="min-h-screen bg-black p-6 text-white">
 	<div class="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
-		<!-- Nav cards -->
-		<a
-			href="/join"
-			class="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition hover:bg-white/10"
-			>Join page</a
-		>
 		<a
 			href="/input"
 			class="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10 transition hover:bg-white/10"
@@ -72,12 +115,42 @@
 		>
 	</div>
 
+	<div class="mx-auto mt-6 max-w-5xl">
+		<div class="rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
+			<div class="flex items-center justify-between gap-4">
+				<div>
+					<div class="font-semibold">Run control</div>
+					<div class="text-sm opacity-70">Start a fresh run ID (safe mid-rehearsal).</div>
+				</div>
+				<button
+					class="rounded-xl bg-red-500/90 px-4 py-2 text-white hover:bg-red-600 disabled:opacity-60"
+					on:click={newRun}
+					disabled={resetting}
+				>
+					{resetting ? 'Starting…' : 'Start new run'}
+				</button>
+			</div>
+			{#if resetMsg}
+				<div class="mt-3 rounded-lg bg-white/10 px-3 py-2 text-sm">{resetMsg}</div>
+			{/if}
+		</div>
+	</div>
+
 	<div class="mx-auto mt-6 grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
 		<!-- Live status -->
 		<div class="rounded-2xl bg-white/5 p-5 ring-1 ring-white/10">
-			<div class="text-sm opacity-70">Submissions</div>
-			<div class="text-5xl leading-none font-extrabold">{submissionCount}</div>
-			<div class="mt-1 text-xs opacity-60">live</div>
+			<div class="grid grid-cols-2 gap-4">
+				<div>
+					<div class="text-sm opacity-70">Submissions</div>
+					<div class="text-5xl leading-none font-extrabold">{submissionCount}</div>
+					<div class="mt-1 text-xs opacity-60">live</div>
+				</div>
+				<div>
+					<div class="text-sm opacity-70">People</div>
+					<div class="text-5xl leading-none font-extrabold">{participantsCount}</div>
+					<div class="mt-1 text-xs opacity-60">joined</div>
+				</div>
+			</div>
 
 			<div class="mt-5">
 				<button
@@ -122,6 +195,16 @@
 					{/if}
 				</div>
 			</div>
+
+			<button
+				class="mt-3 w-full rounded-xl bg-white/90 px-4 py-3 font-medium text-black transition hover:bg-white disabled:opacity-60"
+				on:click={matchNow}
+				disabled={matching}
+			>
+				{matching ? 'Matching…' : 'Match now'}
+			</button>
+			{#if matchMsg}<div class="mt-2 text-sm text-green-300">{matchMsg}</div>{/if}
+			{#if matchErr}<div class="mt-2 text-sm text-red-300">{matchErr}</div>{/if}
 		</div>
 
 		<!-- Themes preview -->
