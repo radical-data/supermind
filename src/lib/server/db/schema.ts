@@ -53,32 +53,3 @@ export const normalised = sqliteTable('normalised', {
 	dataJson: text('data_json').notNull(),
 	embeddingJson: text('embedding_json')
 });
-
-// ────────────────────────────────────────────────────────────────────────────────
-// Votes (A↔B slider), per run, with per-table context captured
-// ────────────────────────────────────────────────────────────────────────────────
-export const votes = sqliteTable(
-	'votes',
-	{
-		participantId: integer('participant_id')
-			.notNull()
-			.references(() => participants.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-		runId: integer('run_id')
-			.notNull()
-			.references(() => runs.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-		// 0 = strong A, 100 = strong B
-		value: integer('value').notNull(),
-		// snapshot of the participant’s table side at vote time
-		tableSide: text('table_side').$type<'A' | 'B'>().notNull(),
-		createdAt: text('created_at').default(nowText).notNull()
-	},
-	(t) => ({
-		pk: primaryKey({ columns: [t.runId, t.participantId] })
-	})
-);
-
-// Optional constraint to keep value within 0..100
-export const votes_value_check = sql`
-  CREATE TABLE IF NOT EXISTS __votes_value_check (x INT);
-  -- no-op container; drizzle sqlite lacks table-level CHECK builder
-`;

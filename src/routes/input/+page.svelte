@@ -62,6 +62,5 @@
 			</div>
 		</form>
 		<p class="text-sm text-gray-300">You can keep adding more lines.</p>
-		<p><a class="text-gray-300 underline" href="/visualiser">See the live brain</a></p>
 	{/if}
 </div>

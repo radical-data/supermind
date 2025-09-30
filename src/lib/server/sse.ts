@@ -1,5 +1,5 @@
-import { db } from './db';
-import { submissions, votes as votesTable } from './db/schema';
+import { db } from '$lib/server/db';
+import { submissions } from '$lib/server/db/schema';
 import { getCurrentRunId } from '.';
 import { eq } from 'drizzle-orm';
 
@@ -25,15 +25,8 @@ export function send(event: string, data: any) {
 
 export async function broadcastCounts() {
 	const runId = await getCurrentRunId();
-	const [subs, vts] = await Promise.all([
-		db.select().from(submissions).where(eq(submissions.runId, runId)),
-		db.select().from(votesTable).where(eq(votesTable.runId, runId))
+	const [subs] = await Promise.all([
+		db.select().from(submissions).where(eq(submissions.runId, runId))
 	]);
 	send('submission_count', { count: subs.length });
-	const all = vts.map((v) => v.value);
-	const A = vts.filter((v) => v.tableSide === 'A').map((v) => v.value);
-	const B = vts.filter((v) => v.tableSide === 'B').map((v) => v.value);
-	const median = (xs: number[]) =>
-		xs.length ? xs.slice().sort((a, b) => a - b)[Math.floor((xs.length - 1) / 2)] : null;
-	send('vote_medians', { overall: median(all), A: median(A), B: median(B), count: vts.length });
 }

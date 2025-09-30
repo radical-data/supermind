@@ -32,9 +32,8 @@ facilitator → /api/summary ───────┘
 - **submissions**: `id`, `runId`, `participantId`, `kind` (default `'triad'`), `payloadJson`, `createdAt`  
   _Unique_: (`runId`,`participantId`,`kind`)
 - **normalised**: `submissionId` (PK), `dataJson`, `embeddingJson?`
-- **votes** (optional): composite PK (`runId`,`participantId`), `value 0..100`, `tableSide`, `createdAt`
 
-> For the sprint we only need **participants**, **submissions**, **normalised** (with `embeddingJson`). **runs** is used to keep sessions separate. **votes** is there if you later add the A/B slider.
+> For the sprint we only need **participants**, **submissions**, **normalised** (with `embeddingJson`). **runs** is used to keep sessions separate.
 
 ## HTTP & SSE interface
 
