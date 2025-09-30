@@ -21,29 +21,37 @@ export const GET: RequestHandler = async () => {
 		start(controller) {
 			addSubscriber(controller);
 
-			// Kick a “snapshot” to the new client right away
+			// 🔸 immediate anti-buffer padding + recommended retry
+			controller.enqueue(`retry: 10000\n`); // let client backoff if dropped
+			controller.enqueue(`: open\n\n`); // comment line (flush hint)
+			// Optional larger pad to beat aggressive buffering:
+			// controller.enqueue(':' + ' '.repeat(2048) + '\n\n');
+
+			// 🔸 heartbeat to keep proxies happy
+			const hb = setInterval(() => {
+				try {
+					controller.enqueue(`: ping ${Date.now()}\n\n`);
+				} catch {}
+			}, 20000); // 20s is a good balance
+
+			// initial snapshot
 			queueMicrotask(async () => {
-				// Always push current counters & graph to all subscribers
 				await broadcastCounts();
 				await broadcastParticipants();
 				await buildAndBroadcastGraph();
 
-				// If we have a saved summary, broadcast it (so everyone stays in sync)
 				const runId = await getCurrentRunId();
 				const [r] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
 				if (r?.clustersJson) {
 					try {
 						send('summary', JSON.parse(r.clustersJson));
-					} catch {
-						/* ignore malformed saved JSON */
-					}
+					} catch {}
 				}
 				if (r?.pairsJson) {
 					const { send } = await import('$lib/server/sse');
 					send('matches', JSON.parse(r.pairsJson));
 				}
 
-				// Send this *new client* a lightweight snapshot of recent lines for bubbles
 				try {
 					const rows = await db.select().from(submissions).where(eq(submissions.runId, runId));
 					const recent = rows.slice(-10).map((row) => {
@@ -54,23 +62,28 @@ export const GET: RequestHandler = async () => {
 							text: extractText(payload)
 						};
 					});
-					// Only enqueue to this controller so we don't spam all clients
 					controller.enqueue(`event: recent_lines\ndata: ${JSON.stringify(recent)}\n\n`);
 				} catch {
-					// If snapshot fails, just skip it; the stream remains alive
+					/* ignore */
 				}
 			});
+
+			// remember to clear heartbeat when client disconnects
+			(controller as any)._hb = hb;
 		},
 		cancel(controller) {
+			const hb = (controller as any)._hb as ReturnType<typeof setInterval> | undefined;
+			if (hb) clearInterval(hb);
 			removeSubscriber(controller);
 		}
 	});
 
 	return new Response(stream, {
 		headers: {
-			'Content-Type': 'text/event-stream',
-			'Cache-Control': 'no-cache',
-			Connection: 'keep-alive'
+			'Content-Type': 'text/event-stream; charset=utf-8',
+			'Cache-Control': 'no-cache, no-transform', // <- important
+			Connection: 'keep-alive',
+			'X-Accel-Buffering': 'no' // harmless outside nginx, helps when present
 		}
 	});
 };
