@@ -1,4 +1,5 @@
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { participants, submissions, normalised } from '$lib/server/db/schema';
 import { getCurrentRunId } from '.';
 import { send } from './sse';

@@ -1,4 +1,5 @@
-import { db } from './db';
+import { getDB } from './db';
+const db = getDB();
 import { runs } from './db/schema';
 import { desc } from 'drizzle-orm';
 

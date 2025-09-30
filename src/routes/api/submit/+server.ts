@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { submissions, normalised, participants } from '$lib/server/db/schema'; // ← add participants
 import { getCurrentRunId } from '$lib/server';
 import { json, error } from '@sveltejs/kit';

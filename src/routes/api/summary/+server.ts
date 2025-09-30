@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { submissions, runs } from '$lib/server/db/schema';
 import { getCurrentRunId } from '$lib/server';
 import { summariseThemes } from '$lib/server/llm';

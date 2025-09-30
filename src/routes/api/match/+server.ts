@@ -1,6 +1,6 @@
-// src/routes/api/match/+server.ts
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { participants, submissions, normalised, runs } from '$lib/server/db/schema';
 import { getCurrentRunId } from '$lib/server';
 import { json, error } from '@sveltejs/kit';

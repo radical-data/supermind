@@ -1,6 +1,7 @@
 # ---- build stage ----
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
+ENV DATABASE_URL=/tmp/build.db
 
 # Native build deps for better-sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends \

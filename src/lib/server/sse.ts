@@ -1,4 +1,5 @@
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { submissions, participants } from '$lib/server/db/schema';
 import { getCurrentRunId } from '.';
 import { eq } from 'drizzle-orm';

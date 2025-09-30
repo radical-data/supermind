@@ -1,5 +1,6 @@
 import type { RequestHandler } from './$types';
-import { db } from '$lib/server/db';
+import { getDB } from '$lib/server/db';
+const db = getDB();
 import { participants } from '$lib/server/db/schema';
 import { json, error } from '@sveltejs/kit';
 import { broadcastParticipants } from '$lib/server/sse';
