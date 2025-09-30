@@ -52,5 +52,8 @@
 		"qrcode": "^1.5.4",
 		"three": "^0.180.0",
 		"three-spritetext": "^1.10.0"
+	},
+	"engines": {
+		"node": ">=22.12 <23 || >=24"
 	}
 }
