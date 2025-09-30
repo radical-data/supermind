@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 
-// ————————————————— Embeddings —————————————————
+// ————— Embeddings —————
 export async function getEmbedding(text: string): Promise<number[]> {
 	if (!env.LLM_API_KEY) {
 		console.warn('[embed] No LLM_API_KEY set — using cheapHashEmbed');
@@ -29,16 +29,26 @@ export async function getEmbedding(text: string): Promise<number[]> {
 function cheapHashEmbed(s: string, dim = 64): number[] {
 	const v = new Array(dim).fill(0);
 	for (let i = 0; i < s.length; i++) v[i % dim] += (s.charCodeAt(i) % 13) - 6;
-	// L2-normalise
 	const n = Math.sqrt(v.reduce((a, b) => a + b * b, 0)) || 1;
 	return v.map((x) => x / n);
 }
 
-// ————————————————— Summary —————————————————
+// ————— Summary —————
 export type SummaryJSON = {
-	themes: { label: string; why?: string; members: number[] }[];
-	contradictions: { a: number; b: number; explain: string }[];
+	themes: {
+		label: string;
+		why?: string;
+		members: number[]; // participantIds
+		examples?: { participantId: number; text: string }[]; // 1–2 short quotes from items
+	}[];
+	contradictions: { a: number; b: number; explain: string }[]; // keep for UI compat
 	outliers: { participantId: number; explain: string }[];
+	agenda?: {
+		title: string; // e.g. "Resolve: speed vs reliability"
+		rationale: string; // why it matters now
+		refs?: number[]; // participantIds referenced
+	}[];
+	tone?: { mood: string; evidence?: number[] }; // one-liner + example ids
 	stats?: { count: number };
 };
 
@@ -48,83 +58,39 @@ export async function summariseThemes(items: { id: number; text: string }[]): Pr
 		return heuristicSummary(items);
 	}
 
-	// Be explicit about the required structure.
-	const structure = {
-		type: 'object',
-		required: ['themes', 'contradictions', 'outliers', 'stats'],
-		properties: {
-			themes: {
-				type: 'array',
-				minItems: 3,
-				maxItems: 6,
-				items: {
-					type: 'object',
-					required: ['label', 'members'],
-					properties: {
-						label: { type: 'string' },
-						why: { type: 'string' },
-						members: {
-							type: 'array',
-							items: { type: 'number' }
-						}
-					}
-				}
-			},
-			contradictions: {
-				type: 'array',
-				maxItems: 3,
-				items: {
-					type: 'object',
-					required: ['a', 'b', 'explain'],
-					properties: {
-						a: { type: 'number' },
-						b: { type: 'number' },
-						explain: { type: 'string' }
-					}
-				}
-			},
-			outliers: {
-				type: 'array',
-				maxItems: 2,
-				items: {
-					type: 'object',
-					required: ['participantId', 'explain'],
-					properties: {
-						participantId: { type: 'number' },
-						explain: { type: 'string' }
-					}
-				}
-			},
-			stats: {
-				type: 'object',
-				required: ['count'],
-				properties: { count: { type: 'number' } }
-			}
-		},
-		additionalProperties: false
-	};
+	// Strict schema + caps keep it concise and machine-safe.
+	const sys = `
+You are facilitating a 6–8 minute meeting synthesis about "AI & logistics".
+Input is an array of {id:number, text:string}. IDs are participant IDs.
 
-	const sys = [
-		'You are clustering very short lines about AI & logistics.',
-		'Return ONLY valid JSON matching the provided JSON Schema.',
-		'Write concise "label" strings; include ids of member participants in "members".',
-		'Include 0–3 contradictions (pairs of participant ids) and up to 2 outliers.'
-	].join(' ');
+Return ONLY valid JSON with this exact shape (no extra keys):
+{
+  "themes": [
+    {
+      "label": "max 6 words",
+      "why": "1 short sentence",
+      "members": [ids...],
+      "examples": [{"participantId": id, "text": "≤100 chars"}]
+    }
+  ],
+  "contradictions": [{"a": id, "b": id, "explain": "≤120 chars"}],
+  "outliers": [{"participantId": id, "explain": "≤120 chars"}],
+  "agenda": [{"title": "≤10 words", "rationale": "≤120 chars", "refs": [ids...]}],
+  "tone": {"mood": "≤6 words", "evidence": [ids...]},
+  "stats": {"count": number}
+}
 
-	const example = {
-		themes: [
-			{
-				label: 'Automation helps exception handling',
-				why: 'Common focus on alerts',
-				members: [1, 7]
-			},
-			{ label: 'Worker augmentation, not replacement', members: [3] }
-		],
-		contradictions: [{ a: 2, b: 9, explain: 'Replace vs. augment debate' }],
-		outliers: [{ participantId: 5, explain: 'Focuses on ethics rather than ops' }],
-		stats: { count: items.length }
-	};
+Rules:
+- 3–6 themes. Choose clear, human-friendly labels.
+- "examples" must quote EXACT text from provided items and use correct participantId. 0–2 per theme.
+- 0–3 contradictions; pick the most meaningful tensions (not nitpicks).
+- 0–2 outliers; explain why they’re different.
+- "agenda" should contain 2–4 concrete discussion items that a human can act on NOW:
+  - Prioritise: (1) resolve biggest tension, (2) clarify a key theme, (3) decide one next action.
+- Keep language crisp; no bullet symbols; no markdown; no commentary outside JSON.
+`;
 
+	const user = JSON.stringify(items);
 	const model = env.SUMMARY_MODEL ?? 'gpt-4o-mini';
 
 	try {
@@ -133,110 +99,40 @@ export async function summariseThemes(items: { id: number; text: string }[]): Pr
 			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.LLM_API_KEY}` },
 			body: JSON.stringify({
 				model,
-				response_format: { type: 'json_object' }, // ensures valid JSON
+				response_format: { type: 'json_object' },
 				messages: [
 					{ role: 'system', content: sys },
-					{
-						role: 'user',
-						content: [
-							'JSON Schema for the required output:',
-							'```json',
-							JSON.stringify(structure),
-							'```',
-							'\nExample of the format (illustrative only):',
-							'```json',
-							JSON.stringify(example),
-							'```',
-							'\nHere are the items to cluster (array of {id,text}):',
-							'```json',
-							JSON.stringify(items),
-							'```'
-						].join('\n')
-					}
+					{ role: 'user', content: user }
 				],
 				temperature: 0.2
 			})
 		});
-
 		if (!res.ok) {
 			const body = await res.text();
 			console.error('[summary] OpenAI error', res.status, body);
 			return heuristicSummary(items);
 		}
-
 		const j = await res.json();
 		const content = j?.choices?.[0]?.message?.content ?? '{}';
+		const parsed = JSON.parse(content);
 
-		// Parse and coerce defensively to the UI’s expected shape.
-		const parsed = safeParseJSON(content) ?? {};
-		return {
-			themes: coerceThemes(parsed.themes),
-			contradictions: coerceContradictions(parsed.contradictions),
-			outliers: coerceOutliers(parsed.outliers),
-			stats:
-				parsed.stats && Number.isFinite(parsed.stats.count) ? parsed.stats : { count: items.length }
+		// Lightweight sanitation to guarantee required fields exist
+		const safe: SummaryJSON = {
+			themes: Array.isArray(parsed.themes) ? parsed.themes : [],
+			contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
+			outliers: Array.isArray(parsed.outliers) ? parsed.outliers : [],
+			agenda: Array.isArray(parsed.agenda) ? parsed.agenda : [],
+			tone: parsed.tone ?? undefined,
+			stats: parsed.stats ?? { count: items.length }
 		};
+		return safe;
 	} catch (e) {
 		console.error('[summary] Exception', e);
 		return heuristicSummary(items);
 	}
 }
 
-// ——— Coercion helpers ———
-function safeParseJSON(s: string): any | null {
-	try {
-		return JSON.parse(s);
-	} catch {
-		return null;
-	}
-}
-
-function coerceThemes(raw: any): { label: string; why?: string; members: number[] }[] {
-	if (!Array.isArray(raw)) return [];
-	return raw.map((t) => {
-		// Accept strings or objects; normalise to {label, why?, members[]}
-		if (typeof t === 'string') return { label: t, members: [] };
-		if (t && typeof t === 'object') {
-			const label = String(t.label ?? t.title ?? t.name ?? 'Theme');
-			const why =
-				t.why != null
-					? String(t.why)
-					: t.reason != null
-						? String(t.reason)
-						: t.explain != null
-							? String(t.explain)
-							: undefined;
-			const members = Array.isArray(t.members)
-				? t.members.filter((n: any) => Number.isFinite(n)).map((n: any) => Number(n))
-				: [];
-			return { label, why, members };
-		}
-		return { label: 'Theme', members: [] };
-	});
-}
-
-function coerceContradictions(raw: any): { a: number; b: number; explain: string }[] {
-	if (!Array.isArray(raw)) return [];
-	return raw
-		.map((c) => ({
-			a: Number(c?.a ?? c?.aId ?? c?.left),
-			b: Number(c?.b ?? c?.bId ?? c?.right),
-			explain: String(c?.explain ?? c?.why ?? c?.reason ?? '')
-		}))
-		.filter((c) => Number.isFinite(c.a) && Number.isFinite(c.b));
-}
-
-function coerceOutliers(raw: any): { participantId: number; explain: string }[] {
-	if (!Array.isArray(raw)) return [];
-	return raw
-		.map((o) => ({
-			participantId: Number(o?.participantId ?? o?.id),
-			explain: String(o?.explain ?? o?.why ?? '')
-		}))
-		.filter((o) => Number.isFinite(o.participantId));
-}
-
-// ————————————————— Heuristic fallback —————————————————
+// ————— Heuristic fallback —————
 function heuristicSummary(items: { id: number; text: string }[]): SummaryJSON {
 	// ultra-simple: use word overlap cosine in cheap embedding space
 	const embeds = items.map((i) => ({ id: i.id, v: cheapHashEmbed(i.text, 64) }));
@@ -267,7 +163,6 @@ function heuristicSummary(items: { id: number; text: string }[]): SummaryJSON {
 		}
 		clusters[best].push(e.id);
 	}
-
 	// outlier = farthest from its seed
 	let out: number | null = null,
 		outScore = 1;
@@ -279,13 +174,22 @@ function heuristicSummary(items: { id: number; text: string }[]): SummaryJSON {
 		}
 	});
 
+	// Minimal agenda heuristic
+	const agenda = clusters
+		.slice(0, 2)
+		.filter((m) => m.length >= 2)
+		.map((m, i) => ({
+			title: `Clarify Theme ${i + 1}`,
+			rationale: 'High interest cluster; define next steps.',
+			refs: m.slice(0, 4)
+		}));
+
 	return {
-		themes: clusters.map((m, i) => ({
-			label: `Theme ${i + 1}`,
-			members: m
-		})),
+		themes: clusters.map((m, i) => ({ label: `Theme ${i + 1}`, members: m })),
 		contradictions: [],
 		outliers: out ? [{ participantId: out, explain: 'Least similar to any theme' }] : [],
+		agenda,
+		tone: { mood: 'Mixed curiosity', evidence: embeds.slice(0, 3).map((e) => e.id) },
 		stats: { count: items.length }
 	};
 }

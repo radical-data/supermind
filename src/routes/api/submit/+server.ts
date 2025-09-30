@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { submissions, normalised } from '$lib/server/db/schema';
 import { getCurrentRunId } from '$lib/server';
 import { json, error } from '@sveltejs/kit';
-import { broadcastCounts } from '$lib/server/sse';
+import { broadcastCounts, send } from '$lib/server/sse';
 import { buildAndBroadcastGraph } from '$lib/server/graph';
 import { getEmbedding } from '$lib/server/llm';
 
@@ -50,6 +50,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	await broadcastCounts();
 	await buildAndBroadcastGraph();
+
+	send('line', { submissionId: sub.id, participantId, text });
 
 	return json({ ok: true, submissionId: sub.id });
 };

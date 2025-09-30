@@ -13,6 +13,8 @@
 	// Preview of current summary (if any)
 	let themes: any[] = [];
 	let contradictions: any[] = [];
+	let agenda: any[] = [];
+	$: void 0;
 
 	async function summarise() {
 		summarising = true;
@@ -43,6 +45,7 @@
 			const s = JSON.parse(e.data);
 			themes = s.themes ?? [];
 			contradictions = s.contradictions ?? [];
+			agenda = s.agenda ?? [];
 			lastSummaryAt = new Date();
 		});
 	});
@@ -149,6 +152,20 @@
 						{/if}
 					</ul>
 				</div>
+			</div>
+
+			<div class="mt-4 border-t border-white/10 pt-4">
+				<div class="mb-2 text-sm opacity-70">Agenda</div>
+				<ol class="space-y-2 text-sm leading-relaxed">
+					{#each agenda ?? [] as a, i}
+						<li class="rounded-lg bg-white/5 p-3">
+							<span class="opacity-70">{i + 1}.</span> <strong>{a.title}</strong> — {a.rationale}
+						</li>
+					{/each}
+					{#if !(agenda && agenda.length)}
+						<li class="rounded-lg bg-white/5 p-3 opacity-60">Will appear after summary.</li>
+					{/if}
+				</ol>
 			</div>
 
 			<p class="mt-4 text-xs opacity-60">
