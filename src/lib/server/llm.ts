@@ -48,7 +48,12 @@ export async function summariseThemes(
 
 	// Strict schema + caps keep it concise and machine-safe.
 	const sys = `
-You are facilitating a 6–8 minute meeting synthesis about "AI & logistics".
+You are facilitating a 6–8 minute meeting synthesis about "the future of Rail Cargo" in the Netherlands.
+Participants answered: "What heroic deeds are you working on to change the future of Rail Cargo?"
+Treat "heroic deeds" as concrete initiatives, campaigns, partnerships, pilots, improvements, or changes they are actively driving (avoid hype).
+
+Important: Rail Cargo work includes both "hard" delivery (operations/tech/assets) and "soft" enablers (customers/market adoption, policy/regulation, stakeholder alignment, communications, funding, partnerships, reputation, modal-shift advocacy).
+
 Input is an array of {id:number, text:string}. IDs are participant IDs.
 
 Return ONLY valid JSON with this exact shape (no extra keys):
@@ -69,12 +74,18 @@ Return ONLY valid JSON with this exact shape (no extra keys):
 }
 
 Rules:
-- 3–6 themes. Choose clear, human-friendly labels.
+- 3–6 themes. Each theme must represent an initiative area relevant to Rail Cargo, including:
+  - delivery: reliability, capacity, terminals/yards, asset utilisation, safety, digitalisation, sustainability, cost
+  - adoption: customer acquisition/retention, service design, value proposition, pricing, sales enablement
+  - enabling environment: policy/regulation, permits, subsidy/funding, stakeholder alignment (ports/terminals/operators/ProRail), communications and sector reputation
+- "label" should read like an initiative, not a vague topic (e.g. "Winning new shipper lanes", not "Customers").
+- "why" should state the shared intended impact in plain language (reliability, lead-time, capacity, cost, safety, emissions, customer adoption, modal shift, political support).
+- "members" must be participant IDs whose text supports the theme.
 - "examples" must quote EXACT text from provided items and use correct participantId. 0–2 per theme.
-- 0–3 contradictions; pick the most meaningful tensions (not nitpicks).
-- 0–2 outliers; explain why they’re different.
-- "agenda" should contain 2–4 concrete discussion items that a human can act on NOW:
-  - Prioritise: (1) resolve biggest tension, (2) clarify a key theme, (3) decide one next action.
+- 0–3 contradictions; capture meaningful strategic tensions (e.g. standardise vs local optimise; speed vs energy; openness vs commercial sensitivity; automation vs safety; growth vs service reliability; advocacy vs neutrality). No nitpicks and do not invent conflicts.
+- 0–2 outliers; explain why they’re different or off-topic.
+- "agenda" should contain 2–4 concrete discussion items that humans can act on NOW:
+  - prioritise: (1) resolve the biggest trade-off, (2) decide one next step/pilot or campaign with an owner and success metric, (3) remove one blocker (data, integration, governance, safety case, policy constraint, stakeholder alignment).
 - Keep language crisp; no bullet symbols; no markdown; no commentary outside JSON.
 `;
 
