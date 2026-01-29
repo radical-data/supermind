@@ -149,7 +149,9 @@
 	{#if !pid}
 		<h1 class="text-xl font-semibold text-white drop-shadow">Welcome — what’s your name?</h1>
 	{:else}
-		<h1 class="text-xl font-semibold text-white drop-shadow">One line: how could AI improve our work in logistics and beyond?</h1>
+		<h1 class="text-xl font-semibold text-white drop-shadow"
+			>What heroic deeds are you working on to change the future of Rail Cargo?</h1
+		>
 	{/if}
 
 	{#if !pid}
@@ -179,7 +181,7 @@
 		<!-- Line submission -->
 		<form class="space-y-3" on:submit|preventDefault={submit}>
 			<input
-				placeholder="AI helps us predict delays earlier"
+				placeholder="Improving our supply chain risk methods to decrease delay time"
 				maxlength="140"
 				class="w-full"
 				bind:value={text}
