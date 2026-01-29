@@ -1,0 +1,14 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+	"files": {
+		"includes": [
+			"**",
+			"!!.svelte-kit",
+			"!!build",
+			"!!.output",
+			"!!drizzle",
+			"!!static",
+			"!!src/app.css"
+		]
+	}
+}

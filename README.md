@@ -93,6 +93,12 @@ On parse failure: **retry once**, then **fallback** to heuristic (k-means on emb
 
 ## Local development
 
+### Toolchain
+
+- Install [`mise`](https://mise.jdx.dev/)
+- Run `mise install`
+- Then run `pnpm install`
+
 ### Prereqs
 
 - Node **≥ 20**
@@ -114,9 +120,9 @@ Set `ADMIN_TOKEN` as a secret environment variable in Coolify. If unset, admin e
 ### Install & DB
 
 ```bash
-npm install
-npm run db:push
-npm run dev
+pnpm install
+pnpm run db:push
+pnpm run dev
 ```
 
 Open:
@@ -124,13 +130,32 @@ Open:
 - **Participants**: `http://localhost:5173/join`
 - **Facilitator**: `http://localhost:5173/visualiser` and `http://localhost:5173/control`
 
+### Docker
+
+```bash
+docker build . -t supermind
+docker run -p 3000:3000 -e DATABASE_URL=/data/app.db -v /path/to/data:/data supermind
+```
+
+App serves on port 3000; schema is created on first run if the DB file is new.
+
+### CI checklist
+
+The CI pipeline must run:
+
+1. `mise install`
+2. `pnpm install --frozen-lockfile`
+3. `pnpm run check`
+4. `pnpm run typecheck`
+5. `pnpm run build`
+
 ## Event-day playbook (Hotel Arena, 2 long tables)
 
 ### Pre-event checklist (10 mins)
 
 - ✅ Laptop on mains power; **Do Not Sleep**.
 - ✅ Local network stable (hotspot fallback ready).
-- ✅ `.env` set; app running (`npm run dev` or `node build`).
+- ✅ `.env` set; app running (`pnpm run dev` or `node build`).
 - ✅ Big screen on **/visualiser**.
 - ✅ Print two QR codes:
   - Table A → `/join?table=A`
