@@ -3,7 +3,7 @@ FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ENV DATABASE_URL=/tmp/build.db
 
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 
 # Native build deps for better-sqlite3
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install deps (dev deps included for Svelte/Vite build)
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN pnpm install --frozen-lockfile && pnpm rebuild better-sqlite3
 
 # Build the SvelteKit app
 COPY . .
