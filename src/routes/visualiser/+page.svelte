@@ -1,16 +1,19 @@
 <script lang="ts">
-const _submissionCount = 0;
-let _themes: any[] = [];
-let _contradictions: any[] = [];
-let _agenda: any[] = [];
-let _tone: any = null;
+import BrainGraph from "$lib/components/BrainGraph.svelte";
+import type { SummaryJSON } from "$lib/types";
 
-function _onSummary(e: CustomEvent) {
+let submissionCount = 0;
+let themes: SummaryJSON["themes"] = [];
+let contradictions: SummaryJSON["contradictions"] = [];
+let agenda: NonNullable<SummaryJSON["agenda"]> = [];
+let tone: SummaryJSON["tone"] | null = null;
+
+function onSummary(e: CustomEvent<SummaryJSON>) {
 	const s = e.detail;
-	_themes = s.themes ?? [];
-	_contradictions = s.contradictions ?? [];
-	_agenda = s.agenda ?? [];
-	_tone = s.tone ?? null;
+	themes = s.themes ?? [];
+	contradictions = s.contradictions ?? [];
+	agenda = s.agenda ?? [];
+	tone = s.tone ?? null;
 }
 </script>
 

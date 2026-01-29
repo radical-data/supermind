@@ -7,6 +7,7 @@ import {
 	removeSubscriber,
 	send,
 } from "$lib/server/sse";
+import type { SubmissionPayload } from "$lib/types";
 import type { RequestHandler } from "./$types";
 
 const db = getDB();
@@ -16,12 +17,14 @@ import { getCurrentRunId } from "$lib/server";
 import { runs, submissions } from "$lib/server/db/schema";
 
 /** Small helper: get display text from a submission payload */
-function extractText(payload: any): string {
+function extractText(payload: unknown): string {
+	const p = (payload ?? {}) as SubmissionPayload;
 	// Prefer single-line payload
-	if (typeof payload?.text === "string") return payload.text.trim();
+	if (typeof p.text === "string") return p.text.trim();
 	// Back-compat for old triad shape
-	return [payload?.fact, payload?.constraint, payload?.hope]
+	return [p.fact, p.constraint, p.hope]
 		.filter(Boolean)
+		.map(String)
 		.join(" ")
 		.trim();
 }
@@ -88,13 +91,16 @@ export const GET: RequestHandler = async () => {
 			});
 
 			// remember to clear heartbeat when client disconnects
-			(controller as any)._hb = hb;
+			type ControllerWithHb = ReadableStreamDefaultController<string> & {
+				_hb?: ReturnType<typeof setInterval>;
+			};
+			(controller as ControllerWithHb)._hb = hb;
 		},
 		cancel(controller) {
-			const hb = (controller as any)._hb as
-				| ReturnType<typeof setInterval>
-				| undefined;
-			if (hb) clearInterval(hb);
+			const c = controller as ReadableStreamDefaultController<string> & {
+				_hb?: ReturnType<typeof setInterval>;
+			};
+			if (c._hb) clearInterval(c._hb);
 			removeSubscriber(controller);
 		},
 	});

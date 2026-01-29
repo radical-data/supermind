@@ -53,10 +53,12 @@ export async function matchAction() {
 		const n = norms.find((x) => x.submissionId === s.id);
 		if (!n?.embeddingJson) continue;
 		const v = JSON.parse(n.embeddingJson) as number[];
-		(
-			byPidEmbeds.get(s.participantId) ??
-			byPidEmbeds.set(s.participantId, []).get(s.participantId)!
-		).push(v);
+		const existing = byPidEmbeds.get(s.participantId);
+		if (existing) {
+			existing.push(v);
+		} else {
+			byPidEmbeds.set(s.participantId, [v]);
+		}
 	}
 	const pidToVec = new Map<number, Vec>(
 		[...byPidEmbeds].map(([pid, arr]) => [pid, mean(arr)]),
@@ -70,10 +72,13 @@ export async function matchAction() {
 		for (let j = i + 1; j < withVec.length; j++) {
 			const u = withVec[i],
 				v = withVec[j];
+			const uVec = pidToVec.get(u.id);
+			const vVec = pidToVec.get(v.id);
+			if (!uVec || !vVec) continue;
 			edges.push({
 				u: u.id,
 				v: v.id,
-				s: +cosine(pidToVec.get(u.id)!, pidToVec.get(v.id)!).toFixed(4),
+				s: +cosine(uVec, vVec).toFixed(4),
 			});
 		}
 	}
@@ -91,15 +96,19 @@ export async function matchAction() {
 	const leftover = people.map((p) => p.id).filter((id) => !used.has(id));
 	// If one unpaired remains, append to best-matching pair (forms a trio).
 	if (leftover.length % 2 === 1 && pairs.length) {
-		const solo = leftover.pop()!;
+		const solo = leftover.pop();
+		if (solo === undefined) throw error(500, "Pairing logic error");
 		let bestIdx = 0,
 			bestScore = -1;
 		for (let i = 0; i < pairs.length; i++) {
 			const m = pairs[i].members;
 			const sims = m.map((id) =>
-				pidToVec.has(id) && pidToVec.has(solo)
-					? cosine(pidToVec.get(id)!, pidToVec.get(solo)!)
-					: 0,
+				(() => {
+					const a = pidToVec.get(id);
+					const b = pidToVec.get(solo);
+					if (!a || !b) return 0;
+					return cosine(a, b);
+				})(),
 			);
 			const avg = sims.length
 				? sims.reduce((a, b) => a + b, 0) / sims.length

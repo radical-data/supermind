@@ -1,4 +1,5 @@
 import { getDB } from "$lib/server/db";
+import type { SubmissionPayload } from "$lib/types";
 
 const db = getDB();
 
@@ -20,10 +21,12 @@ function cosine(a: number[], b: number[]) {
 }
 
 // add helper to mirror the one in /api/stream
-function extractText(payload: any): string {
-	if (typeof payload?.text === "string") return payload.text.trim();
-	return [payload?.fact, payload?.constraint, payload?.hope]
+function extractText(payload: unknown): string {
+	const p = (payload ?? {}) as SubmissionPayload;
+	if (typeof p.text === "string") return p.text.trim();
+	return [p.fact, p.constraint, p.hope]
 		.filter(Boolean)
+		.map(String)
 		.join(" ")
 		.trim();
 }

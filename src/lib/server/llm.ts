@@ -1,4 +1,5 @@
 import { env } from "$env/dynamic/private";
+import type { SummaryJSON } from "$lib/types";
 
 // ————— Embeddings —————
 export async function getEmbedding(text: string): Promise<number[]> {
@@ -37,24 +38,6 @@ function cheapHashEmbed(s: string, dim = 64): number[] {
 }
 
 // ————— Summary —————
-export type SummaryJSON = {
-	themes: {
-		label: string;
-		why?: string;
-		members: number[]; // participantIds
-		examples?: { participantId: number; text: string }[]; // 1–2 short quotes from items
-	}[];
-	contradictions: { a: number; b: number; explain: string }[]; // keep for UI compat
-	outliers: { participantId: number; explain: string }[];
-	agenda?: {
-		title: string; // e.g. "Resolve: speed vs reliability"
-		rationale: string; // why it matters now
-		refs?: number[]; // participantIds referenced
-	}[];
-	tone?: { mood: string; evidence?: number[] }; // one-liner + example ids
-	stats?: { count: number };
-};
-
 export async function summariseThemes(
 	items: { id: number; text: string }[],
 ): Promise<SummaryJSON> {

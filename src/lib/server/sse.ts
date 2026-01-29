@@ -15,7 +15,7 @@ export function removeSubscriber(c: ReadableStreamDefaultController<string>) {
 	subscribers.delete(c);
 }
 
-export function send(event: string, data: any) {
+export function send(event: string, data: unknown) {
 	const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 	for (const c of Array.from(subscribers)) {
 		try {

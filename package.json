@@ -9,7 +9,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
-		"check": "biome check .",
+		"check": "biome check . && svelte-check --tsconfig ./tsconfig.json",
 		"fix": "biome check --write .",
 		"fmt": "biome format --write .",
 		"lint": "biome lint .",

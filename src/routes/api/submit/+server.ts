@@ -1,4 +1,5 @@
 import { getDB } from "$lib/server/db";
+import type { SubmissionPayload } from "$lib/types";
 import type { RequestHandler } from "./$types";
 
 const db = getDB();
@@ -11,15 +12,17 @@ import { buildAndBroadcastGraph } from "$lib/server/graph";
 import { getEmbedding } from "$lib/server/llm";
 import { broadcastCounts, send } from "$lib/server/sse";
 
-function extractText(payload: any): string {
-	if (typeof payload?.text === "string") return payload.text.trim();
-	return [payload?.fact, payload?.constraint, payload?.hope]
+function extractText(payload: unknown): string {
+	const p = (payload ?? {}) as SubmissionPayload;
+	if (typeof p.text === "string") return p.text.trim();
+	return [p.fact, p.constraint, p.hope]
 		.filter(Boolean)
+		.map(String)
 		.join(" ")
 		.trim();
 }
 
-function normaliseLine(payload: any) {
+function normaliseLine(payload: unknown) {
 	const text = extractText(payload);
 	return { clean_text: text, tags: [], stances: {}, red_flags: [] };
 }

@@ -3,12 +3,42 @@
 	"files": {
 		"includes": [
 			"**",
-			"!!.svelte-kit",
-			"!!build",
-			"!!.output",
-			"!!drizzle",
-			"!!static",
-			"!!src/app.css"
+			"!**/.svelte-kit",
+			"!**/build",
+			"!**/.output",
+			"!**/drizzle",
+			"!**/static"
 		]
-	}
+	},
+
+	// Enables Biome's experimental support for HTML super-languages (Vue/Svelte/Astro).
+	"html": {
+		"experimentalFullSupportEnabled": true
+	},
+
+	"css": {
+		"parser": {
+			"tailwindDirectives": true
+		}
+	},
+
+	"overrides": [
+		{
+			"includes": ["**/*.svelte"],
+			"linter": {
+				"rules": {
+					// Biome currently cannot reliably see template usage from <script>,
+					// so these rules produce false positives in .svelte files.
+					"correctness": {
+						"noUnusedVariables": "off",
+						"noUnusedImports": "off"
+					},
+					// useConst false-positives when assignment is in template only
+					"style": {
+						"useConst": "off"
+					}
+				}
+			}
+		}
+	]
 }

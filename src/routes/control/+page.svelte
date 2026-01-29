@@ -1,26 +1,26 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte";
+import type { SummaryJSON } from "$lib/types";
 
 let es: EventSource | null = null;
 
 // Live counters/status
-let _submissionCount = 0;
-let _summarising = false;
+let submissionCount = 0;
+let summarising = false;
 let okMsg = "";
-let _errMsg = "";
-let _lastSummaryAt: Date | null = null;
+let errMsg = "";
+let lastSummaryAt: Date | null = null;
 
 // Preview of current summary (if any)
-let _themes: any[] = [];
-let _contradictions: any[] = [];
-let _agenda: any[] = [];
-$: void 0;
-let _participantsCount = 0;
+let themes: SummaryJSON["themes"] = [];
+let contradictions: SummaryJSON["contradictions"] = [];
+let agenda: NonNullable<SummaryJSON["agenda"]> = [];
+let participantsCount = 0;
 
-async function _summarise() {
-	_summarising = true;
+async function summarise() {
+	summarising = true;
 	okMsg = "";
-	_errMsg = "";
+	errMsg = "";
 	try {
 		const r = await fetch("/api/admin/summary", { method: "POST" });
 		if (!r.ok) {
@@ -28,18 +28,20 @@ async function _summarise() {
 			throw new Error(text || `HTTP ${r.status}`);
 		}
 		okMsg = "Summary sent ✓";
-		setTimeout(() => (okMsg = ""), 2000);
-	} catch (e: any) {
-		_errMsg = `Failed to summarise: ${e?.message ?? e}`;
+		setTimeout(() => {
+			okMsg = "";
+		}, 2000);
+	} catch (e: unknown) {
+		errMsg = `Failed to summarise: ${e instanceof Error ? e.message : e}`;
 	} finally {
-		_summarising = false;
+		summarising = false;
 	}
 }
 
-let _resetting = false;
+let resetting = false;
 let resetMsg = "";
 
-async function _newRun() {
+async function newRun() {
 	if (
 		!confirm(
 			"Start a NEW run? Existing submissions stay in the old run, and counters reset.",
@@ -47,38 +49,42 @@ async function _newRun() {
 	) {
 		return;
 	}
-	_resetting = true;
+	resetting = true;
 	resetMsg = "";
 	try {
 		const r = await fetch("/api/admin/run/reset", { method: "POST" });
 		if (!r.ok) throw new Error(await r.text());
 		const { runId } = await r.json();
 		resetMsg = `New run started (#${runId}).`;
-		setTimeout(() => (resetMsg = ""), 3000);
-	} catch (e: any) {
-		resetMsg = `Failed to start new run: ${e?.message ?? e}`;
+		setTimeout(() => {
+			resetMsg = "";
+		}, 3000);
+	} catch (e: unknown) {
+		resetMsg = `Failed to start new run: ${e instanceof Error ? e.message : e}`;
 	} finally {
-		_resetting = false;
+		resetting = false;
 	}
 }
 
-let _matching = false,
-	matchMsg = "",
-	_matchErr = "";
+let matching = false;
+let matchMsg = "";
+let matchErr = "";
 
-async function _matchNow() {
-	_matching = true;
+async function matchNow() {
+	matching = true;
 	matchMsg = "";
-	_matchErr = "";
+	matchErr = "";
 	try {
 		const r = await fetch("/api/admin/match", { method: "POST" });
 		if (!r.ok) throw new Error(await r.text());
 		matchMsg = "Matches sent ✓";
-		setTimeout(() => (matchMsg = ""), 2000);
-	} catch (e: any) {
-		_matchErr = `Failed to match: ${e?.message ?? e}`;
+		setTimeout(() => {
+			matchMsg = "";
+		}, 2000);
+	} catch (e: unknown) {
+		matchErr = `Failed to match: ${e instanceof Error ? e.message : e}`;
 	} finally {
-		_matching = false;
+		matching = false;
 	}
 }
 
@@ -86,18 +92,18 @@ onMount(() => {
 	es = new EventSource("/api/stream");
 	es.addEventListener("submission_count", (e: MessageEvent) => {
 		const d = JSON.parse(e.data);
-		_submissionCount = d.count ?? 0;
+		submissionCount = d.count ?? 0;
 	});
 	es.addEventListener("summary", (e: MessageEvent) => {
 		const s = JSON.parse(e.data);
-		_themes = s.themes ?? [];
-		_contradictions = s.contradictions ?? [];
-		_agenda = s.agenda ?? [];
-		_lastSummaryAt = new Date();
+		themes = s.themes ?? [];
+		contradictions = s.contradictions ?? [];
+		agenda = s.agenda ?? [];
+		lastSummaryAt = new Date();
 	});
 	es.addEventListener("participant_count", (e: MessageEvent) => {
 		const d = JSON.parse(e.data);
-		_participantsCount = d.count ?? 0;
+		participantsCount = d.count ?? 0;
 	});
 });
 onDestroy(() => es?.close());

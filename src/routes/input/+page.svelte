@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte";
 import { browser } from "$app/environment";
+import BrainGraph from "$lib/components/BrainGraph.svelte";
 
 let name = "";
 let text = "";
@@ -24,10 +25,12 @@ function addBubble(line: {
 		text: line.text.slice(0, 120),
 		x: 10 + Math.random() * 80,
 		y: 15 + Math.random() * 60,
-		life: 3800 + Math.random().toFixed(3) * 1200,
+		life: 3800 + Number(Math.random().toFixed(3)) * 1200,
 	};
 	bubbles = [...bubbles, b];
-	setTimeout(() => (bubbles = bubbles.filter((bb) => bb.id !== b.id)), b.life);
+	setTimeout(() => {
+		bubbles = bubbles.filter((bb) => bb.id !== b.id);
+	}, b.life);
 }
 
 function resetLocalIdentity() {
@@ -54,21 +57,24 @@ onMount(() => {
 		for (const l of arr) addBubble(l);
 	});
 	es.addEventListener("matches", (e: MessageEvent) => {
-		if (!pid) return;
+		if (pid == null) return;
+		const myPid = pid;
 		// members/names shape: supports pairs or trios
 		const data = JSON.parse(e.data) as {
 			pairs: { members: number[]; score: number; names: string[] }[];
 		};
-		const mine = data.pairs.find((g) => g.members.includes(pid!));
+		const mine = data.pairs.find((g) => g.members.includes(myPid));
 		if (!mine) return;
-		const others = mine.names.filter((_, i) => mine.members[i] !== pid);
+		const others = mine.names.filter((_, i) => mine.members[i] !== myPid);
 		myMatch = { partnerLabel: others.join(" & "), score: mine.score };
-		setTimeout(() => (myMatch = null), 15000);
+		setTimeout(() => {
+			myMatch = null;
+		}, 15000);
 	});
 });
 onDestroy(() => es?.close());
 
-async function _saveName() {
+async function saveName() {
 	if (!name.trim()) return;
 	const r = await fetch("/api/join", {
 		method: "POST",
@@ -85,7 +91,7 @@ async function _saveName() {
 	sessionStorage.setItem("name", name.trim());
 }
 
-async function _submit() {
+async function submit() {
 	if (!pid || !text.trim()) return;
 	const r = await fetch("/api/submit", {
 		method: "POST",
@@ -111,7 +117,9 @@ async function _submit() {
 	}
 	text = "";
 	justSent = true;
-	setTimeout(() => (justSent = false), 1200);
+	setTimeout(() => {
+		justSent = false;
+	}, 1200);
 }
 </script>
 
@@ -171,8 +179,8 @@ async function _submit() {
 			class="space-y-3 rounded-2xl bg-white/5 p-4 ring-1 ring-white/10"
 			on:submit|preventDefault={saveName}
 		>
-			<label class="block text-sm text-white/90">Your name</label>
-			<input placeholder="e.g. Amira" class="mt-1 w-full" bind:value={name} autocomplete="off" />
+			<label for="name" class="block text-sm text-white/90">Your name</label>
+			<input id="name" placeholder="e.g. Amira" class="mt-1 w-full" bind:value={name} autocomplete="off" />
 			<button
 				type="submit"
 				class="inline-block rounded-lg bg-black px-4 py-2 text-white hover:bg-gray-800 disabled:opacity-50"
