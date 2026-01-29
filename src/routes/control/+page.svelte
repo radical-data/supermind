@@ -1,104 +1,106 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+import { onDestroy, onMount } from "svelte";
 
-	let es: EventSource | null = null;
+let es: EventSource | null = null;
 
-	// Live counters/status
-	let submissionCount = 0;
-	let summarising = false;
-	let okMsg = '';
-	let errMsg = '';
-	let lastSummaryAt: Date | null = null;
+// Live counters/status
+let _submissionCount = 0;
+let _summarising = false;
+let okMsg = "";
+let _errMsg = "";
+let _lastSummaryAt: Date | null = null;
 
-	// Preview of current summary (if any)
-	let themes: any[] = [];
-	let contradictions: any[] = [];
-	let agenda: any[] = [];
-	$: void 0;
-	let participantsCount = 0;
+// Preview of current summary (if any)
+let _themes: any[] = [];
+let _contradictions: any[] = [];
+let _agenda: any[] = [];
+$: void 0;
+let _participantsCount = 0;
 
-	async function summarise() {
-		summarising = true;
-		okMsg = '';
-		errMsg = '';
-		try {
-			const r = await fetch('/api/admin/summary', { method: 'POST' });
-			if (!r.ok) {
-				const text = await r.text();
-				throw new Error(text || `HTTP ${r.status}`);
-			}
-			okMsg = 'Summary sent ✓';
-			setTimeout(() => (okMsg = ''), 2000);
-		} catch (e: any) {
-			errMsg = `Failed to summarise: ${e?.message ?? e}`;
-		} finally {
-			summarising = false;
+async function _summarise() {
+	_summarising = true;
+	okMsg = "";
+	_errMsg = "";
+	try {
+		const r = await fetch("/api/admin/summary", { method: "POST" });
+		if (!r.ok) {
+			const text = await r.text();
+			throw new Error(text || `HTTP ${r.status}`);
 		}
+		okMsg = "Summary sent ✓";
+		setTimeout(() => (okMsg = ""), 2000);
+	} catch (e: any) {
+		_errMsg = `Failed to summarise: ${e?.message ?? e}`;
+	} finally {
+		_summarising = false;
 	}
+}
 
-	let resetting = false;
-	let resetMsg = '';
+let _resetting = false;
+let resetMsg = "";
 
-	async function newRun() {
-		if (
-			!confirm('Start a NEW run? Existing submissions stay in the old run, and counters reset.')
-		) {
-			return;
-		}
-		resetting = true;
-		resetMsg = '';
-		try {
-			const r = await fetch('/api/admin/run/reset', { method: 'POST' });
-			if (!r.ok) throw new Error(await r.text());
-			const { runId } = await r.json();
-			resetMsg = `New run started (#${runId}).`;
-			setTimeout(() => (resetMsg = ''), 3000);
-		} catch (e: any) {
-			resetMsg = `Failed to start new run: ${e?.message ?? e}`;
-		} finally {
-			resetting = false;
-		}
+async function _newRun() {
+	if (
+		!confirm(
+			"Start a NEW run? Existing submissions stay in the old run, and counters reset.",
+		)
+	) {
+		return;
 	}
-
-	let matching = false,
-		matchMsg = '',
-		matchErr = '';
-
-	async function matchNow() {
-		matching = true;
-		matchMsg = '';
-		matchErr = '';
-		try {
-			const r = await fetch('/api/admin/match', { method: 'POST' });
-			if (!r.ok) throw new Error(await r.text());
-			matchMsg = 'Matches sent ✓';
-			setTimeout(() => (matchMsg = ''), 2000);
-		} catch (e: any) {
-			matchErr = `Failed to match: ${e?.message ?? e}`;
-		} finally {
-			matching = false;
-		}
+	_resetting = true;
+	resetMsg = "";
+	try {
+		const r = await fetch("/api/admin/run/reset", { method: "POST" });
+		if (!r.ok) throw new Error(await r.text());
+		const { runId } = await r.json();
+		resetMsg = `New run started (#${runId}).`;
+		setTimeout(() => (resetMsg = ""), 3000);
+	} catch (e: any) {
+		resetMsg = `Failed to start new run: ${e?.message ?? e}`;
+	} finally {
+		_resetting = false;
 	}
+}
 
-	onMount(() => {
-		es = new EventSource('/api/stream');
-		es.addEventListener('submission_count', (e: MessageEvent) => {
-			const d = JSON.parse(e.data);
-			submissionCount = d.count ?? 0;
-		});
-		es.addEventListener('summary', (e: MessageEvent) => {
-			const s = JSON.parse(e.data);
-			themes = s.themes ?? [];
-			contradictions = s.contradictions ?? [];
-			agenda = s.agenda ?? [];
-			lastSummaryAt = new Date();
-		});
-		es.addEventListener('participant_count', (e: MessageEvent) => {
-			const d = JSON.parse(e.data);
-			participantsCount = d.count ?? 0;
-		});
+let _matching = false,
+	matchMsg = "",
+	_matchErr = "";
+
+async function _matchNow() {
+	_matching = true;
+	matchMsg = "";
+	_matchErr = "";
+	try {
+		const r = await fetch("/api/admin/match", { method: "POST" });
+		if (!r.ok) throw new Error(await r.text());
+		matchMsg = "Matches sent ✓";
+		setTimeout(() => (matchMsg = ""), 2000);
+	} catch (e: any) {
+		_matchErr = `Failed to match: ${e?.message ?? e}`;
+	} finally {
+		_matching = false;
+	}
+}
+
+onMount(() => {
+	es = new EventSource("/api/stream");
+	es.addEventListener("submission_count", (e: MessageEvent) => {
+		const d = JSON.parse(e.data);
+		_submissionCount = d.count ?? 0;
 	});
-	onDestroy(() => es?.close());
+	es.addEventListener("summary", (e: MessageEvent) => {
+		const s = JSON.parse(e.data);
+		_themes = s.themes ?? [];
+		_contradictions = s.contradictions ?? [];
+		_agenda = s.agenda ?? [];
+		_lastSummaryAt = new Date();
+	});
+	es.addEventListener("participant_count", (e: MessageEvent) => {
+		const d = JSON.parse(e.data);
+		_participantsCount = d.count ?? 0;
+	});
+});
+onDestroy(() => es?.close());
 </script>
 
 <div class="min-h-screen bg-black p-6 text-white">

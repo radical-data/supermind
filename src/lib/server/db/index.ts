@@ -1,16 +1,16 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import * as schema from './schema';
-import { env } from '$env/dynamic/private';
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { env } from "$env/dynamic/private";
+import * as schema from "./schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
 function open() {
 	// Prefer env, but provide a safe default so build-time imports never crash
-	const url = env.DATABASE_URL || '/data/app.db';
+	const url = env.DATABASE_URL || "/data/app.db";
 	const client = new Database(url);
-	client.pragma('journal_mode = WAL');
-	client.pragma('synchronous = NORMAL');
+	client.pragma("journal_mode = WAL");
+	client.pragma("synchronous = NORMAL");
 	return drizzle(client, { schema });
 }
 

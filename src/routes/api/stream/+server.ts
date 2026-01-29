@@ -1,19 +1,29 @@
-import type { RequestHandler } from './$types';
-import { addSubscriber, broadcastParticipants, removeSubscriber, send } from '$lib/server/sse';
-import { broadcastCounts } from '$lib/server/sse';
-import { buildAndBroadcastGraph } from '$lib/server/graph';
-import { getDB } from '$lib/server/db';
+import { getDB } from "$lib/server/db";
+import { buildAndBroadcastGraph } from "$lib/server/graph";
+import {
+	addSubscriber,
+	broadcastCounts,
+	broadcastParticipants,
+	removeSubscriber,
+	send,
+} from "$lib/server/sse";
+import type { RequestHandler } from "./$types";
+
 const db = getDB();
-import { runs, submissions } from '$lib/server/db/schema';
-import { getCurrentRunId } from '$lib/server';
-import { eq } from 'drizzle-orm';
+
+import { eq } from "drizzle-orm";
+import { getCurrentRunId } from "$lib/server";
+import { runs, submissions } from "$lib/server/db/schema";
 
 /** Small helper: get display text from a submission payload */
 function extractText(payload: any): string {
 	// Prefer single-line payload
-	if (typeof payload?.text === 'string') return payload.text.trim();
+	if (typeof payload?.text === "string") return payload.text.trim();
 	// Back-compat for old triad shape
-	return [payload?.fact, payload?.constraint, payload?.hope].filter(Boolean).join(' ').trim();
+	return [payload?.fact, payload?.constraint, payload?.hope]
+		.filter(Boolean)
+		.join(" ")
+		.trim();
 }
 
 export const GET: RequestHandler = async () => {
@@ -41,28 +51,37 @@ export const GET: RequestHandler = async () => {
 				await buildAndBroadcastGraph();
 
 				const runId = await getCurrentRunId();
-				const [r] = await db.select().from(runs).where(eq(runs.id, runId)).limit(1);
+				const [r] = await db
+					.select()
+					.from(runs)
+					.where(eq(runs.id, runId))
+					.limit(1);
 				if (r?.clustersJson) {
 					try {
-						send('summary', JSON.parse(r.clustersJson));
+						send("summary", JSON.parse(r.clustersJson));
 					} catch {}
 				}
 				if (r?.pairsJson) {
-					const { send } = await import('$lib/server/sse');
-					send('matches', JSON.parse(r.pairsJson));
+					const { send } = await import("$lib/server/sse");
+					send("matches", JSON.parse(r.pairsJson));
 				}
 
 				try {
-					const rows = await db.select().from(submissions).where(eq(submissions.runId, runId));
+					const rows = await db
+						.select()
+						.from(submissions)
+						.where(eq(submissions.runId, runId));
 					const recent = rows.slice(-10).map((row) => {
-						const payload = JSON.parse(row.payloadJson ?? '{}');
+						const payload = JSON.parse(row.payloadJson ?? "{}");
 						return {
 							submissionId: row.id,
 							participantId: row.participantId,
-							text: extractText(payload)
+							text: extractText(payload),
 						};
 					});
-					controller.enqueue(`event: recent_lines\ndata: ${JSON.stringify(recent)}\n\n`);
+					controller.enqueue(
+						`event: recent_lines\ndata: ${JSON.stringify(recent)}\n\n`,
+					);
 				} catch {
 					/* ignore */
 				}
@@ -72,18 +91,20 @@ export const GET: RequestHandler = async () => {
 			(controller as any)._hb = hb;
 		},
 		cancel(controller) {
-			const hb = (controller as any)._hb as ReturnType<typeof setInterval> | undefined;
+			const hb = (controller as any)._hb as
+				| ReturnType<typeof setInterval>
+				| undefined;
 			if (hb) clearInterval(hb);
 			removeSubscriber(controller);
-		}
+		},
 	});
 
 	return new Response(stream, {
 		headers: {
-			'Content-Type': 'text/event-stream; charset=utf-8',
-			'Cache-Control': 'no-cache, no-transform', // <- important
-			Connection: 'keep-alive',
-			'X-Accel-Buffering': 'no' // harmless outside nginx, helps when present
-		}
+			"Content-Type": "text/event-stream; charset=utf-8",
+			"Cache-Control": "no-cache, no-transform", // <- important
+			Connection: "keep-alive",
+			"X-Accel-Buffering": "no", // harmless outside nginx, helps when present
+		},
 	});
 };

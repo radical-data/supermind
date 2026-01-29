@@ -1,7 +1,9 @@
-import { getDB } from './db';
+import { getDB } from "./db";
+
 const db = getDB();
-import { runs } from './db/schema';
-import { desc } from 'drizzle-orm';
+
+import { desc } from "drizzle-orm";
+import { runs } from "./db/schema";
 
 let currentRunId: number | null = null;
 

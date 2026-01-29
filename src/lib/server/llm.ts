@@ -1,27 +1,30 @@
-import { env } from '$env/dynamic/private';
+import { env } from "$env/dynamic/private";
 
 // ————— Embeddings —————
 export async function getEmbedding(text: string): Promise<number[]> {
 	if (!env.LLM_API_KEY) {
-		console.warn('[embed] No LLM_API_KEY set — using cheapHashEmbed');
+		console.warn("[embed] No LLM_API_KEY set — using cheapHashEmbed");
 		return cheapHashEmbed(text);
 	}
-	const model = env.EMBED_MODEL ?? 'text-embedding-3-small';
+	const model = env.EMBED_MODEL ?? "text-embedding-3-small";
 	try {
-		const res = await fetch('https://api.openai.com/v1/embeddings', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.LLM_API_KEY}` },
-			body: JSON.stringify({ model, input: text })
+		const res = await fetch("https://api.openai.com/v1/embeddings", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${env.LLM_API_KEY}`,
+			},
+			body: JSON.stringify({ model, input: text }),
 		});
 		if (!res.ok) {
 			const body = await res.text();
-			console.error('[embed] OpenAI error', res.status, body);
+			console.error("[embed] OpenAI error", res.status, body);
 			return cheapHashEmbed(text);
 		}
 		const j = await res.json();
 		return j?.data?.[0]?.embedding ?? cheapHashEmbed(text);
 	} catch (e) {
-		console.error('[embed] Exception', e);
+		console.error("[embed] Exception", e);
 		return cheapHashEmbed(text);
 	}
 }
@@ -52,9 +55,11 @@ export type SummaryJSON = {
 	stats?: { count: number };
 };
 
-export async function summariseThemes(items: { id: number; text: string }[]): Promise<SummaryJSON> {
+export async function summariseThemes(
+	items: { id: number; text: string }[],
+): Promise<SummaryJSON> {
 	if (!env.LLM_API_KEY) {
-		console.warn('[summary] No LLM_API_KEY set — using heuristicSummary');
+		console.warn("[summary] No LLM_API_KEY set — using heuristicSummary");
 		return heuristicSummary(items);
 	}
 
@@ -91,43 +96,48 @@ Rules:
 `;
 
 	const user = JSON.stringify(items);
-	const model = env.SUMMARY_MODEL ?? 'gpt-4o-mini';
+	const model = env.SUMMARY_MODEL ?? "gpt-4o-mini";
 
 	try {
-		const res = await fetch('https://api.openai.com/v1/chat/completions', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.LLM_API_KEY}` },
+		const res = await fetch("https://api.openai.com/v1/chat/completions", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${env.LLM_API_KEY}`,
+			},
 			body: JSON.stringify({
 				model,
-				response_format: { type: 'json_object' },
+				response_format: { type: "json_object" },
 				messages: [
-					{ role: 'system', content: sys },
-					{ role: 'user', content: user }
+					{ role: "system", content: sys },
+					{ role: "user", content: user },
 				],
-				temperature: 0.2
-			})
+				temperature: 0.2,
+			}),
 		});
 		if (!res.ok) {
 			const body = await res.text();
-			console.error('[summary] OpenAI error', res.status, body);
+			console.error("[summary] OpenAI error", res.status, body);
 			return heuristicSummary(items);
 		}
 		const j = await res.json();
-		const content = j?.choices?.[0]?.message?.content ?? '{}';
+		const content = j?.choices?.[0]?.message?.content ?? "{}";
 		const parsed = JSON.parse(content);
 
 		// Lightweight sanitation to guarantee required fields exist
 		const safe: SummaryJSON = {
 			themes: Array.isArray(parsed.themes) ? parsed.themes : [],
-			contradictions: Array.isArray(parsed.contradictions) ? parsed.contradictions : [],
+			contradictions: Array.isArray(parsed.contradictions)
+				? parsed.contradictions
+				: [],
 			outliers: Array.isArray(parsed.outliers) ? parsed.outliers : [],
 			agenda: Array.isArray(parsed.agenda) ? parsed.agenda : [],
 			tone: parsed.tone ?? undefined,
-			stats: parsed.stats ?? { count: items.length }
+			stats: parsed.stats ?? { count: items.length },
 		};
 		return safe;
 	} catch (e) {
-		console.error('[summary] Exception', e);
+		console.error("[summary] Exception", e);
 		return heuristicSummary(items);
 	}
 }
@@ -135,7 +145,10 @@ Rules:
 // ————— Heuristic fallback —————
 function heuristicSummary(items: { id: number; text: string }[]): SummaryJSON {
 	// ultra-simple: use word overlap cosine in cheap embedding space
-	const embeds = items.map((i) => ({ id: i.id, v: cheapHashEmbed(i.text, 64) }));
+	const embeds = items.map((i) => ({
+		id: i.id,
+		v: cheapHashEmbed(i.text, 64),
+	}));
 	const cos = (a: number[], b: number[]) => {
 		let dot = 0,
 			na = 0,
@@ -180,16 +193,21 @@ function heuristicSummary(items: { id: number; text: string }[]): SummaryJSON {
 		.filter((m) => m.length >= 2)
 		.map((m, i) => ({
 			title: `Clarify Theme ${i + 1}`,
-			rationale: 'High interest cluster; define next steps.',
-			refs: m.slice(0, 4)
+			rationale: "High interest cluster; define next steps.",
+			refs: m.slice(0, 4),
 		}));
 
 	return {
 		themes: clusters.map((m, i) => ({ label: `Theme ${i + 1}`, members: m })),
 		contradictions: [],
-		outliers: out ? [{ participantId: out, explain: 'Least similar to any theme' }] : [],
+		outliers: out
+			? [{ participantId: out, explain: "Least similar to any theme" }]
+			: [],
 		agenda,
-		tone: { mood: 'Mixed curiosity', evidence: embeds.slice(0, 3).map((e) => e.id) },
-		stats: { count: items.length }
+		tone: {
+			mood: "Mixed curiosity",
+			evidence: embeds.slice(0, 3).map((e) => e.id),
+		},
+		stats: { count: items.length },
 	};
 }

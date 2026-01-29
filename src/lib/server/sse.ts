@@ -1,8 +1,10 @@
-import { getDB } from '$lib/server/db';
+import { getDB } from "$lib/server/db";
+
 const db = getDB();
-import { submissions, participants } from '$lib/server/db/schema';
-import { getCurrentRunId } from '.';
-import { eq } from 'drizzle-orm';
+
+import { eq } from "drizzle-orm";
+import { participants, submissions } from "$lib/server/db/schema";
+import { getCurrentRunId } from ".";
 
 const subscribers = new Set<ReadableStreamDefaultController<string>>();
 
@@ -27,12 +29,12 @@ export function send(event: string, data: any) {
 export async function broadcastCounts() {
 	const runId = await getCurrentRunId();
 	const [subs] = await Promise.all([
-		db.select().from(submissions).where(eq(submissions.runId, runId))
+		db.select().from(submissions).where(eq(submissions.runId, runId)),
 	]);
-	send('submission_count', { count: subs.length });
+	send("submission_count", { count: subs.length });
 }
 
 export async function broadcastParticipants() {
 	const people = await db.select().from(participants);
-	send('participant_count', { count: people.length });
+	send("participant_count", { count: people.length });
 }

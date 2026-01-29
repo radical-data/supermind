@@ -1,19 +1,17 @@
 <script lang="ts">
-	import BrainGraph from '$lib/components/BrainGraph.svelte';
+const _submissionCount = 0;
+let _themes: any[] = [];
+let _contradictions: any[] = [];
+let _agenda: any[] = [];
+let _tone: any = null;
 
-	let submissionCount = 0;
-	let themes: any[] = [];
-	let contradictions: any[] = [];
-	let agenda: any[] = [];
-	let tone: any = null;
-
-	function onSummary(e: CustomEvent) {
-		const s = e.detail;
-		themes = s.themes ?? [];
-		contradictions = s.contradictions ?? [];
-		agenda = s.agenda ?? [];
-		tone = s.tone ?? null;
-	}
+function _onSummary(e: CustomEvent) {
+	const s = e.detail;
+	_themes = s.themes ?? [];
+	_contradictions = s.contradictions ?? [];
+	_agenda = s.agenda ?? [];
+	_tone = s.tone ?? null;
+}
 </script>
 
 <div class="relative min-h-screen bg-black text-white">

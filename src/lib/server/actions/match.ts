@@ -1,10 +1,15 @@
-import { getDB } from '$lib/server/db';
-import { participants, submissions, normalised, runs } from '$lib/server/db/schema';
-import { getCurrentRunId } from '$lib/server';
-import { error } from '@sveltejs/kit';
-import { eq, inArray } from 'drizzle-orm';
-import { send } from '$lib/server/sse';
-import { jsonNoStore } from '$lib/server/admin';
+import { error } from "@sveltejs/kit";
+import { eq, inArray } from "drizzle-orm";
+import { getCurrentRunId } from "$lib/server";
+import { jsonNoStore } from "$lib/server/admin";
+import { getDB } from "$lib/server/db";
+import {
+	normalised,
+	participants,
+	runs,
+	submissions,
+} from "$lib/server/db/schema";
+import { send } from "$lib/server/sse";
 
 type Vec = number[];
 
@@ -27,14 +32,20 @@ export async function matchAction() {
 	const runId = await getCurrentRunId();
 
 	const people = await db.select().from(participants);
-	if (!people.length) throw error(400, 'No participants');
+	if (!people.length) throw error(400, "No participants");
 
-	const subs = await db.select().from(submissions).where(eq(submissions.runId, runId));
-	if (!subs.length) throw error(400, 'No submissions for this run');
+	const subs = await db
+		.select()
+		.from(submissions)
+		.where(eq(submissions.runId, runId));
+	if (!subs.length) throw error(400, "No submissions for this run");
 
 	const subIds = subs.map((s) => s.id);
 	const norms = subIds.length
-		? await db.select().from(normalised).where(inArray(normalised.submissionId, subIds))
+		? await db
+				.select()
+				.from(normalised)
+				.where(inArray(normalised.submissionId, subIds))
 		: [];
 
 	const byPidEmbeds = new Map<number, Vec[]>();
@@ -43,10 +54,13 @@ export async function matchAction() {
 		if (!n?.embeddingJson) continue;
 		const v = JSON.parse(n.embeddingJson) as number[];
 		(
-			byPidEmbeds.get(s.participantId) ?? byPidEmbeds.set(s.participantId, []).get(s.participantId)!
+			byPidEmbeds.get(s.participantId) ??
+			byPidEmbeds.set(s.participantId, []).get(s.participantId)!
 		).push(v);
 	}
-	const pidToVec = new Map<number, Vec>([...byPidEmbeds].map(([pid, arr]) => [pid, mean(arr)]));
+	const pidToVec = new Map<number, Vec>(
+		[...byPidEmbeds].map(([pid, arr]) => [pid, mean(arr)]),
+	);
 
 	const withVec = people.filter((p) => pidToVec.has(p.id));
 
@@ -59,7 +73,7 @@ export async function matchAction() {
 			edges.push({
 				u: u.id,
 				v: v.id,
-				s: +cosine(pidToVec.get(u.id)!, pidToVec.get(v.id)!).toFixed(4)
+				s: +cosine(pidToVec.get(u.id)!, pidToVec.get(v.id)!).toFixed(4),
 			});
 		}
 	}
@@ -83,9 +97,13 @@ export async function matchAction() {
 		for (let i = 0; i < pairs.length; i++) {
 			const m = pairs[i].members;
 			const sims = m.map((id) =>
-				pidToVec.has(id) && pidToVec.has(solo) ? cosine(pidToVec.get(id)!, pidToVec.get(solo)!) : 0
+				pidToVec.has(id) && pidToVec.has(solo)
+					? cosine(pidToVec.get(id)!, pidToVec.get(solo)!)
+					: 0,
 			);
-			const avg = sims.length ? sims.reduce((a, b) => a + b, 0) / sims.length : 0;
+			const avg = sims.length
+				? sims.reduce((a, b) => a + b, 0) / sims.length
+				: 0;
 			if (avg > bestScore) {
 				bestScore = avg;
 				bestIdx = i;
@@ -105,15 +123,15 @@ export async function matchAction() {
 		pairs: pairs.map((g) => ({
 			members: g.members,
 			score: g.score,
-			names: g.members.map((id) => idToName.get(id) ?? `#${id}`)
-		}))
+			names: g.members.map((id) => idToName.get(id) ?? `#${id}`),
+		})),
 	};
 
 	await db
 		.update(runs)
 		.set({ pairsJson: JSON.stringify(payload) })
 		.where(eq(runs.id, runId));
-	send('matches', payload);
+	send("matches", payload);
 	return jsonNoStore({ ok: true, ...payload });
 }
 
@@ -125,4 +143,3 @@ const mean = (arrs: Vec[]): Vec => {
 	for (let i = 0; i < dim; i++) out[i] /= arrs.length;
 	return out;
 };
-

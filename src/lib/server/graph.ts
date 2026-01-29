@@ -1,9 +1,11 @@
-import { getDB } from '$lib/server/db';
+import { getDB } from "$lib/server/db";
+
 const db = getDB();
-import { participants, submissions, normalised } from '$lib/server/db/schema';
-import { getCurrentRunId } from '.';
-import { send } from './sse';
-import { eq } from 'drizzle-orm';
+
+import { eq } from "drizzle-orm";
+import { normalised, participants, submissions } from "$lib/server/db/schema";
+import { getCurrentRunId } from ".";
+import { send } from "./sse";
 
 function cosine(a: number[], b: number[]) {
 	let dot = 0,
@@ -19,26 +21,35 @@ function cosine(a: number[], b: number[]) {
 
 // add helper to mirror the one in /api/stream
 function extractText(payload: any): string {
-	if (typeof payload?.text === 'string') return payload.text.trim();
-	return [payload?.fact, payload?.constraint, payload?.hope].filter(Boolean).join(' ').trim();
+	if (typeof payload?.text === "string") return payload.text.trim();
+	return [payload?.fact, payload?.constraint, payload?.hope]
+		.filter(Boolean)
+		.join(" ")
+		.trim();
 }
 
 export async function buildAndBroadcastGraph(threshold = 0.65, topK = 3) {
 	const runId = await getCurrentRunId();
 
 	const people = await db.select().from(participants);
-	const subs = await db.select().from(submissions).where(eq(submissions.runId, runId));
+	const subs = await db
+		.select()
+		.from(submissions)
+		.where(eq(submissions.runId, runId));
 	const norms = await db.select().from(normalised);
 
 	// map subId -> embedding
 	const embedBySub = new Map(
-		norms.map((n) => [n.submissionId, JSON.parse(n.embeddingJson ?? '[]') as number[]])
+		norms.map((n) => [
+			n.submissionId,
+			JSON.parse(n.embeddingJson ?? "[]") as number[],
+		]),
 	);
 
 	// latest submission *text* per participant (by created order / id)
 	const latestText = new Map<number, string>();
 	for (const s of subs) {
-		const p = JSON.parse(s.payloadJson ?? '{}');
+		const p = JSON.parse(s.payloadJson ?? "{}");
 		latestText.set(s.participantId, extractText(p));
 	}
 
@@ -53,8 +64,8 @@ export async function buildAndBroadcastGraph(threshold = 0.65, topK = 3) {
 	const nodes = people.map((p) => ({
 		id: p.id,
 		label: p.name,
-		text: latestText.get(p.id) ?? '', // used by the front-end when showing text
-		group: 1
+		text: latestText.get(p.id) ?? "", // used by the front-end when showing text
+		group: 1,
 	}));
 	const ids = nodes.map((n) => n.id);
 
@@ -72,7 +83,8 @@ export async function buildAndBroadcastGraph(threshold = 0.65, topK = 3) {
 		}
 		row.sort((a, b) => b.s - a.s);
 		for (const r of row.slice(0, topK))
-			if (r.s >= threshold) cand.push({ source: ids[i], target: r.j, value: +r.s.toFixed(2) });
+			if (r.s >= threshold)
+				cand.push({ source: ids[i], target: r.j, value: +r.s.toFixed(2) });
 	}
 
 	// de-duplicate undirected
@@ -104,11 +116,15 @@ export async function buildAndBroadcastGraph(threshold = 0.65, topK = 3) {
 				const k = key(ids[i], best.j);
 				if (!seen.has(k)) {
 					seen.add(k);
-					links.push({ source: ids[i], target: best.j, value: +best.s.toFixed(2) });
+					links.push({
+						source: ids[i],
+						target: best.j,
+						value: +best.s.toFixed(2),
+					});
 				}
 			}
 		}
 	}
 
-	send('graph', { nodes, links });
+	send("graph", { nodes, links });
 }

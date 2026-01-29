@@ -1,107 +1,118 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
-	import BrainGraph from '$lib/components/BrainGraph.svelte';
+import { onDestroy, onMount } from "svelte";
+import { browser } from "$app/environment";
 
-	let name = '';
-	let text = '';
-	let justSent = false;
-	let pid: number | null = null;
-	let myMatch: { partnerLabel: string; score: number } | null = null;
+let name = "";
+let text = "";
+let justSent = false;
+let pid: number | null = null;
+let myMatch: { partnerLabel: string; score: number } | null = null;
 
-	type Bubble = { id: string; text: string; x: number; y: number; life: number };
+type Bubble = { id: string; text: string; x: number; y: number; life: number };
 
-	let es: EventSource | null = null;
-	let bubbles: Bubble[] = [];
+let es: EventSource | null = null;
+let bubbles: Bubble[] = [];
 
-	function addBubble(line: { submissionId: number; participantId: number; text: string }) {
-		if (pid && line.participantId === pid) return;
-		const b: Bubble = {
-			id: `${line.submissionId}-${Math.random().toString(36).slice(2)}`,
-			text: line.text.slice(0, 120),
-			x: 10 + Math.random() * 80,
-			y: 15 + Math.random() * 60,
-			life: 3800 + Math.random().toFixed(3) * 1200
-		};
-		bubbles = [...bubbles, b];
-		setTimeout(() => (bubbles = bubbles.filter((bb) => bb.id !== b.id)), b.life);
+function addBubble(line: {
+	submissionId: number;
+	participantId: number;
+	text: string;
+}) {
+	if (pid && line.participantId === pid) return;
+	const b: Bubble = {
+		id: `${line.submissionId}-${Math.random().toString(36).slice(2)}`,
+		text: line.text.slice(0, 120),
+		x: 10 + Math.random() * 80,
+		y: 15 + Math.random() * 60,
+		life: 3800 + Math.random().toFixed(3) * 1200,
+	};
+	bubbles = [...bubbles, b];
+	setTimeout(() => (bubbles = bubbles.filter((bb) => bb.id !== b.id)), b.life);
+}
+
+function resetLocalIdentity() {
+	sessionStorage.removeItem("pid");
+	// keep the typed name for convenience
+	pid = null;
+}
+
+onMount(() => {
+	if (!browser) return;
+	const raw = sessionStorage.getItem("pid");
+	pid = raw ? Number(raw) : null;
+	if (!pid) {
+		const savedName = sessionStorage.getItem("name");
+		if (savedName) name = savedName;
 	}
 
-	function resetLocalIdentity() {
-		sessionStorage.removeItem('pid');
-		// keep the typed name for convenience
-		pid = null;
-	}
-
-	onMount(() => {
-		if (!browser) return;
-		const raw = sessionStorage.getItem('pid');
-		pid = raw ? Number(raw) : null;
-		if (!pid) {
-			const savedName = sessionStorage.getItem('name');
-			if (savedName) name = savedName;
-		}
-
-		es = new EventSource('/api/stream');
-		es.addEventListener('line', (e: MessageEvent) => addBubble(JSON.parse(e.data)));
-		es.addEventListener('recent_lines', (e: MessageEvent) => {
-			const arr = JSON.parse(e.data);
-			for (const l of arr) addBubble(l);
-		});
-		es.addEventListener('matches', (e: MessageEvent) => {
-			if (!pid) return;
-			// members/names shape: supports pairs or trios
-			const data = JSON.parse(e.data) as {
-				pairs: { members: number[]; score: number; names: string[] }[];
-			};
-			const mine = data.pairs.find((g) => g.members.includes(pid!));
-			if (!mine) return;
-			const others = mine.names.filter((_, i) => mine.members[i] !== pid);
-			myMatch = { partnerLabel: others.join(' & '), score: mine.score };
-			setTimeout(() => (myMatch = null), 15000);
-		});
+	es = new EventSource("/api/stream");
+	es.addEventListener("line", (e: MessageEvent) =>
+		addBubble(JSON.parse(e.data)),
+	);
+	es.addEventListener("recent_lines", (e: MessageEvent) => {
+		const arr = JSON.parse(e.data);
+		for (const l of arr) addBubble(l);
 	});
-	onDestroy(() => es?.close());
+	es.addEventListener("matches", (e: MessageEvent) => {
+		if (!pid) return;
+		// members/names shape: supports pairs or trios
+		const data = JSON.parse(e.data) as {
+			pairs: { members: number[]; score: number; names: string[] }[];
+		};
+		const mine = data.pairs.find((g) => g.members.includes(pid!));
+		if (!mine) return;
+		const others = mine.names.filter((_, i) => mine.members[i] !== pid);
+		myMatch = { partnerLabel: others.join(" & "), score: mine.score };
+		setTimeout(() => (myMatch = null), 15000);
+	});
+});
+onDestroy(() => es?.close());
 
-	async function saveName() {
-		if (!name.trim()) return;
-		const r = await fetch('/api/join', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: name.trim() })
-		});
-		if (!r.ok) {
-			alert('Could not save name. Please try again.');
+async function _saveName() {
+	if (!name.trim()) return;
+	const r = await fetch("/api/join", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ name: name.trim() }),
+	});
+	if (!r.ok) {
+		alert("Could not save name. Please try again.");
+		return;
+	}
+	const { participantId } = await r.json();
+	pid = participantId;
+	sessionStorage.setItem("pid", String(participantId));
+	sessionStorage.setItem("name", name.trim());
+}
+
+async function _submit() {
+	if (!pid || !text.trim()) return;
+	const r = await fetch("/api/submit", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			participantId: pid,
+			kind: "line",
+			payload: { text },
+		}),
+	});
+	if (!r.ok) {
+		const msg = await r.text();
+		// If server-side guard fired, reset pid and ask for name again
+		if (r.status === 400 && msg.includes("unknown_participant")) {
+			resetLocalIdentity();
+			alert(
+				"Room was reset or your session expired — please enter your name again.",
+			);
 			return;
 		}
-		const { participantId } = await r.json();
-		pid = participantId;
-		sessionStorage.setItem('pid', String(participantId));
-		sessionStorage.setItem('name', name.trim());
+		alert("Failed to submit. Please try again.");
+		return;
 	}
-
-	async function submit() {
-		if (!pid || !text.trim()) return;
-		const r = await fetch('/api/submit', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ participantId: pid, kind: 'line', payload: { text } })
-		});
-		if (!r.ok) {
-			const msg = await r.text();
-			// If server-side guard fired, reset pid and ask for name again
-			if (r.status === 400 && msg.includes('unknown_participant')) {
-				resetLocalIdentity();
-				alert('Room was reset or your session expired — please enter your name again.');
-				return;
-			}
-			alert('Failed to submit. Please try again.');
-			return;
-		}
-		text = '';
-		justSent = true;
-		setTimeout(() => (justSent = false), 1200);
-	}
+	text = "";
+	justSent = true;
+	setTimeout(() => (justSent = false), 1200);
+}
 </script>
 
 <!-- Background 3D graph -->

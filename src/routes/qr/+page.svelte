@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
-	import QRCode from 'qrcode';
+import QRCode from "qrcode";
+import { onMount } from "svelte";
+import { browser } from "$app/environment";
 
-	let canvas: HTMLCanvasElement;
-	let joinUrl = '';
+let canvas: HTMLCanvasElement;
+let joinUrl = "";
 
-	onMount(async () => {
-		if (!browser) return;
+onMount(async () => {
+	if (!browser) return;
 
-		joinUrl = location.origin + '/input';
-		await QRCode.toCanvas(canvas, joinUrl, { margin: 1, width: 480 });
-	});
+	joinUrl = `${location.origin}/input`;
+	await QRCode.toCanvas(canvas, joinUrl, { margin: 1, width: 480 });
+});
 </script>
 
 <div class="min-h-screen bg-black p-6 text-white">
