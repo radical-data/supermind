@@ -1,16 +1,13 @@
-import { getDB } from "$lib/server/db";
-import type { SubmissionPayload } from "$lib/types";
-import type { RequestHandler } from "./$types";
-
-const db = getDB();
-
 import { error, json } from "@sveltejs/kit";
 import { eq } from "drizzle-orm";
 import { getCurrentRunId } from "$lib/server";
-import { normalised, participants, submissions } from "$lib/server/db/schema"; // ← add participants
+import { getDB } from "$lib/server/db";
+import { normalised, participants, submissions } from "$lib/server/db/schema";
 import { buildAndBroadcastGraph } from "$lib/server/graph";
 import { getEmbedding } from "$lib/server/llm";
 import { broadcastCounts, send } from "$lib/server/sse";
+import type { SubmissionPayload } from "$lib/types";
+import type { RequestHandler } from "./$types";
 
 function extractText(payload: unknown): string {
 	const p = (payload ?? {}) as SubmissionPayload;
@@ -28,6 +25,7 @@ function normaliseLine(payload: unknown) {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+	const db = getDB();
 	const { participantId, kind = "line", payload } = await request.json();
 	if (!participantId || !payload) throw error(400, "Bad input");
 

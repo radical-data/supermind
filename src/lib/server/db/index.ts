@@ -2,6 +2,9 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { env } from "$env/dynamic/private";
 import { building } from "$app/environment";
 import * as schema from "./schema";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 let _db: ReturnType<typeof drizzle> | null = null;
 

@@ -1,10 +1,7 @@
-import { getDB } from "$lib/server/db";
-import type { SubmissionPayload } from "$lib/types";
-
-const db = getDB();
-
 import { eq } from "drizzle-orm";
+import { getDB } from "$lib/server/db";
 import { normalised, participants, submissions } from "$lib/server/db/schema";
+import type { SubmissionPayload } from "$lib/types";
 import { getCurrentRunId } from ".";
 import { send } from "./sse";
 
@@ -32,6 +29,7 @@ function extractText(payload: unknown): string {
 }
 
 export async function buildAndBroadcastGraph(threshold = 0.65, topK = 3) {
+	const db = getDB();
 	const runId = await getCurrentRunId();
 
 	const people = await db.select().from(participants);

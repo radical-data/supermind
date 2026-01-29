@@ -1,4 +1,7 @@
+import { eq } from "drizzle-orm";
+import { getCurrentRunId } from "$lib/server";
 import { getDB } from "$lib/server/db";
+import { runs, submissions } from "$lib/server/db/schema";
 import { buildAndBroadcastGraph } from "$lib/server/graph";
 import {
 	addSubscriber,
@@ -9,12 +12,6 @@ import {
 } from "$lib/server/sse";
 import type { SubmissionPayload } from "$lib/types";
 import type { RequestHandler } from "./$types";
-
-const db = getDB();
-
-import { eq } from "drizzle-orm";
-import { getCurrentRunId } from "$lib/server";
-import { runs, submissions } from "$lib/server/db/schema";
 
 /** Small helper: get display text from a submission payload */
 function extractText(payload: unknown): string {
@@ -49,6 +46,7 @@ export const GET: RequestHandler = async () => {
 
 			// initial snapshot
 			queueMicrotask(async () => {
+				const db = getDB();
 				await broadcastCounts();
 				await broadcastParticipants();
 				await buildAndBroadcastGraph();
