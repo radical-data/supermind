@@ -106,7 +106,10 @@ cp .env.example .env
 # edit:
 DATABASE_URL=/data/app.db           # or ./local.db
 LLM_API_KEY=sk-...
+ADMIN_TOKEN=...                     # 32+ chars (random); store as secret
 ```
+
+Set `ADMIN_TOKEN` as a secret environment variable in Coolify. If unset, admin endpoints return 401 (fail closed).
 
 ### Install & DB
 

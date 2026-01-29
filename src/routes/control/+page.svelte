@@ -22,7 +22,7 @@
 		okMsg = '';
 		errMsg = '';
 		try {
-			const r = await fetch('/api/summary', { method: 'POST' });
+			const r = await fetch('/api/admin/summary', { method: 'POST' });
 			if (!r.ok) {
 				const text = await r.text();
 				throw new Error(text || `HTTP ${r.status}`);
@@ -48,7 +48,7 @@
 		resetting = true;
 		resetMsg = '';
 		try {
-			const r = await fetch('/api/run/reset', { method: 'POST' });
+			const r = await fetch('/api/admin/run/reset', { method: 'POST' });
 			if (!r.ok) throw new Error(await r.text());
 			const { runId } = await r.json();
 			resetMsg = `New run started (#${runId}).`;
@@ -69,7 +69,7 @@
 		matchMsg = '';
 		matchErr = '';
 		try {
-			const r = await fetch('/api/match', { method: 'POST' });
+			const r = await fetch('/api/admin/match', { method: 'POST' });
 			if (!r.ok) throw new Error(await r.text());
 			matchMsg = 'Matches sent ✓';
 			setTimeout(() => (matchMsg = ''), 2000);

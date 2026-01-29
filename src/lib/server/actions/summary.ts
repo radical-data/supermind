@@ -1,18 +1,20 @@
-import type { RequestHandler } from './$types';
 import { getDB } from '$lib/server/db';
-const db = getDB();
 import { submissions, runs } from '$lib/server/db/schema';
 import { getCurrentRunId } from '$lib/server';
 import { summariseThemes } from '$lib/server/llm';
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { send } from '$lib/server/sse';
+import { jsonNoStore } from '$lib/server/admin';
 
-export const POST: RequestHandler = async () => {
+const DEBUG_SUMMARY = process.env.NODE_ENV !== 'production';
+
+export async function summariseAction() {
+	const db = getDB();
 	const runId = await getCurrentRunId();
 	const rows = await db.select().from(submissions).where(eq(submissions.runId, runId));
 	if (!rows.length) {
-		console.warn('[summary] No submissions for run', runId);
+		if (DEBUG_SUMMARY) console.warn('[summary] No submissions for run', runId);
 		throw error(400, 'No submissions');
 	}
 
@@ -25,21 +27,24 @@ export const POST: RequestHandler = async () => {
 		return { id: r.participantId, text };
 	});
 
-	console.log('[summary] Calling summariseThemes for', items.length, 'items');
+	if (DEBUG_SUMMARY) {
+		console.log('[summary] summariseThemes on', items.length, 'items');
+	}
 	const summary = await summariseThemes(items);
-	console.log('[summary] Got summary:', {
-		themes: summary.themes.length,
-		contradictions: summary.contradictions.length,
-		outliers: summary.outliers.length
-	});
 
 	await db
 		.update(runs)
 		.set({ clustersJson: JSON.stringify(summary) })
 		.where(eq(runs.id, runId));
-	console.log('[summary] Saved to runs.clustersJson for run', runId);
 
 	send('summary', summary);
-	console.log('[summary] Broadcasted via SSE');
-	return json({ ok: true });
-};
+	if (DEBUG_SUMMARY) {
+		console.log('[summary] Broadcasted summary for run', runId, {
+			themes: summary.themes.length,
+			contradictions: summary.contradictions.length,
+			outliers: summary.outliers.length
+		});
+	}
+	return jsonNoStore({ ok: true });
+}
+

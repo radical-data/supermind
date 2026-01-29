@@ -1,13 +1,13 @@
-import type { RequestHandler } from './$types';
 import { getDB } from '$lib/server/db';
-const db = getDB();
 import { participants, submissions, normalised, runs } from '$lib/server/db/schema';
 import { getCurrentRunId } from '$lib/server';
-import { json, error } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import { eq, inArray } from 'drizzle-orm';
 import { send } from '$lib/server/sse';
+import { jsonNoStore } from '$lib/server/admin';
 
 type Vec = number[];
+
 const cosine = (a: Vec, b: Vec) => {
 	let dot = 0,
 		na = 0,
@@ -21,16 +21,9 @@ const cosine = (a: Vec, b: Vec) => {
 	}
 	return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 };
-const mean = (arrs: Vec[]): Vec => {
-	if (!arrs.length) return [];
-	const dim = Math.max(...arrs.map((v) => v.length));
-	const out = new Array(dim).fill(0);
-	for (const v of arrs) for (let i = 0; i < dim; i++) out[i] += v[i] ?? 0;
-	for (let i = 0; i < dim; i++) out[i] /= arrs.length;
-	return out;
-};
 
-export const POST: RequestHandler = async () => {
+export async function matchAction() {
+	const db = getDB();
 	const runId = await getCurrentRunId();
 
 	const people = await db.select().from(participants);
@@ -44,7 +37,6 @@ export const POST: RequestHandler = async () => {
 		? await db.select().from(normalised).where(inArray(normalised.submissionId, subIds))
 		: [];
 
-	// Average embedding per participant for this run
 	const byPidEmbeds = new Map<number, Vec[]>();
 	for (const s of subs) {
 		const n = norms.find((x) => x.submissionId === s.id);
@@ -57,9 +49,7 @@ export const POST: RequestHandler = async () => {
 	const pidToVec = new Map<number, Vec>([...byPidEmbeds].map(([pid, arr]) => [pid, mean(arr)]));
 
 	const withVec = people.filter((p) => pidToVec.has(p.id));
-	const noVec = people.filter((p) => !pidToVec.has(p.id));
 
-	// Build all scored edges among withVec
 	type Edge = { u: number; v: number; s: number };
 	const edges: Edge[] = [];
 	for (let i = 0; i < withVec.length; i++) {
@@ -75,7 +65,6 @@ export const POST: RequestHandler = async () => {
 	}
 	edges.sort((a, b) => b.s - a.s);
 
-	// Greedy disjoint pairing
 	const used = new Set<number>();
 	const pairs: Array<{ members: number[]; score: number }> = [];
 	for (const e of edges) {
@@ -85,12 +74,10 @@ export const POST: RequestHandler = async () => {
 		pairs.push({ members: [e.u, e.v], score: e.s });
 	}
 
-	// Leftovers from withVec plus all noVec
 	const leftover = people.map((p) => p.id).filter((id) => !used.has(id));
-	// If odd count, attach the last solo to the weakest existing pair → trio
+	// If one unpaired remains, append to best-matching pair (forms a trio).
 	if (leftover.length % 2 === 1 && pairs.length) {
 		const solo = leftover.pop()!;
-		// attach to the pair with best average similarity (or just the last pair as a simple rule)
 		let bestIdx = 0,
 			bestScore = -1;
 		for (let i = 0; i < pairs.length; i++) {
@@ -107,16 +94,12 @@ export const POST: RequestHandler = async () => {
 		pairs[bestIdx].members.push(solo);
 	}
 
-	// Pair any remaining leftovers arbitrarily
 	for (let i = 0; i + 1 < leftover.length; i += 2) {
 		pairs.push({ members: [leftover[i], leftover[i + 1]], score: 0 });
 	}
 	if (leftover.length % 2 === 1) {
-		// truly last solo (edge case when there were no pairs to form a trio)
 		pairs.push({ members: [leftover[leftover.length - 1]], score: 0 });
 	}
-
-	// Decorate with names for UI
 	const idToName = new Map(people.map((p) => [p.id, p.name]));
 	const payload = {
 		pairs: pairs.map((g) => ({
@@ -131,5 +114,15 @@ export const POST: RequestHandler = async () => {
 		.set({ pairsJson: JSON.stringify(payload) })
 		.where(eq(runs.id, runId));
 	send('matches', payload);
-	return json({ ok: true, ...payload });
+	return jsonNoStore({ ok: true, ...payload });
+}
+
+const mean = (arrs: Vec[]): Vec => {
+	if (!arrs.length) return [];
+	const dim = Math.max(...arrs.map((v) => v.length));
+	const out = new Array(dim).fill(0);
+	for (const v of arrs) for (let i = 0; i < dim; i++) out[i] += v[i] ?? 0;
+	for (let i = 0; i < dim; i++) out[i] /= arrs.length;
+	return out;
 };
+

@@ -1,0 +1,9 @@
+import type { RequestHandler } from './$types';
+import { summariseAction } from '$lib/server/actions/summary';
+import { requireAdminForApi } from '$lib/server/admin';
+
+export const POST: RequestHandler = async ({ request }) => {
+	requireAdminForApi(request);
+	return summariseAction();
+};
+
